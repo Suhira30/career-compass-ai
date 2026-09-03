@@ -4,10 +4,11 @@
 
 <div align="center">
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github)
-![Python Version](https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![React Version](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
+<img src="https://img.shields.io/badge/Career_Compass_AI-v1.0.0-09090B?style=for-the-badge&logo=compass&logoColor=white" alt="Version">
+<img src="https://img.shields.io/badge/Build-Passing-09090B?style=for-the-badge&logo=githubactions&logoColor=22c55e" alt="Build Status">
+<img src="https://img.shields.io/badge/Python-3.11+-09090B?style=for-the-badge&logo=python&logoColor=38bdf8" alt="Python">
+<img src="https://img.shields.io/badge/React-18+-09090B?style=for-the-badge&logo=react&logoColor=61dafb" alt="React">
+<img src="https://img.shields.io/badge/License-MIT-09090B?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License">
 
 </div>
 
@@ -95,30 +96,30 @@ graph TD
 
 ## 6. Tech Stack
 
-### Shields & Badges Overview
+### Shieldcn Badges Matrix
 
-#### **Frontend Tech Stack**
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+#### **Frontend**
+![React](https://img.shields.io/badge/React-09090B?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-09090B?style=for-the-badge&logo=typescript&logoColor=3178C6)
+![Vite](https://img.shields.io/badge/Vite-09090B?style=for-the-badge&logo=vite&logoColor=646CFF)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-09090B?style=for-the-badge&logo=tailwindcss&logoColor=06B6D4)
 
-#### **Backend Tech Stack**
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white)
-![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
-![Uvicorn](https://img.shields.io/badge/Uvicorn-4053D6?style=for-the-badge&logo=python&logoColor=white)
+#### **Backend**
+![Python](https://img.shields.io/badge/Python-09090B?style=for-the-badge&logo=python&logoColor=3776AB)
+![FastAPI](https://img.shields.io/badge/FastAPI-09090B?style=for-the-badge&logo=fastapi&logoColor=009688)
+![Pydantic](https://img.shields.io/badge/Pydantic-09090B?style=for-the-badge&logo=pydantic&logoColor=E92063)
+![Uvicorn](https://img.shields.io/badge/Uvicorn-09090B?style=for-the-badge&logo=python&logoColor=4053D6)
 
-#### **AI, RAG & Data Persistence**
-![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)
-![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=google&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6F61?style=for-the-badge&logo=database&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+#### **AI & Data Persistence**
+![LangChain](https://img.shields.io/badge/LangChain-09090B?style=for-the-badge&logo=chainlink&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-09090B?style=for-the-badge&logo=google&logoColor=8E75B2)
+![OpenAI](https://img.shields.io/badge/OpenAI-09090B?style=for-the-badge&logo=openai&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-09090B?style=for-the-badge&logo=sqlite&logoColor=FF6F61)
+![SQLite](https://img.shields.io/badge/SQLite-09090B?style=for-the-badge&logo=sqlite&logoColor=003B57)
 
-#### **DevOps & Testing**
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
+#### **DevOps & Quality Assurance**
+![Docker](https://img.shields.io/badge/Docker-09090B?style=for-the-badge&logo=docker&logoColor=2496ED)
+![Pytest](https://img.shields.io/badge/Pytest-09090B?style=for-the-badge&logo=pytest&logoColor=0A9EDC)
 
 ---
 
@@ -379,5 +380,3 @@ pytest tests/ -v
 * 🤖 **Multi-Agent Orchestration**: LangGraph multi-agent teams for deep career coaching.
 * 🌐 **Live Job Board Indexing**: Direct integration with job APIs to auto-fetch live job descriptions.
 * 🎙️ **Mock Interview Simulator**: Real-time AI voice/video interview practice.
-#   c a r e e r - c o m p a s s - a i  
- 
