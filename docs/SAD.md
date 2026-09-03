@@ -344,13 +344,14 @@ graph TD
 
 ## 18. Technology Decisions
 
-| Technology Component   | Selection                 | Rationale                                                                                     |
-| :--------------------- | :------------------------ | :-------------------------------------------------------------------------------------------- |
-| **Frontend Framework** | React + TypeScript + Vite | High performance, strict typing for complex profile state, fast developer feedback loop.      |
-| **Backend Framework**  | FastAPI (Python 3.11+)    | Async native, automatic OpenAPI documentation, seamless integration with Python AI libraries. |
-| **AI Orchestration**   | LangChain / Native SDKs   | Standardized prompt templates, streaming support, and vendor-agnostic LLM abstractions.       |
-| **Vector DB**          | ChromaDB (MVP)            | Lightweight, zero-config embedding store easily portable to Qdrant/Pinecone in production.    |
-| **Validation Layer**   | Pydantic v2               | High-speed data validation and seamless LLM structured output enforcement.                    |
+| Technology Component     | Selection                            | Rationale                                                                                            |
+| :----------------------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------- |
+| **Frontend Framework**   | React + TypeScript + Vite            | High performance, strict typing for complex profile state, fast developer feedback loop.             |
+| **Backend Framework**    | FastAPI (Python 3.11+)               | Async native, automatic OpenAPI documentation, seamless integration with Python AI libraries.        |
+| **AI Orchestration**     | LangChain (`langchain-groq`)         | Vendor-agnostic prompt templates, structured output parsing, and native streaming support.           |
+| **LLM Inference Engine** | **Groq Cloud LPU** (`llama-3.3-70b`) | Ultra-fast token inference ($> 500\text{ tokens/sec}$), ultra-low latency for parsing and streaming. |
+| **Vector DB**            | ChromaDB (MVP)                       | Lightweight, zero-config embedding store easily portable to Qdrant/Pinecone in production.           |
+| **Validation Layer**     | Pydantic v2                          | High-speed data validation and seamless LLM structured output enforcement.                           |
 
 ---
 
@@ -367,6 +368,12 @@ graph TD
 - **Context**: Raw LLM output string responses cause parsing errors when building downstream gap analysis matrices.
 - **Decision**: Enforce JSON mode and Pydantic schema enforcement on all extraction LLM calls.
 - **Consequences**: Guarantees deterministic backend responses and eliminates runtime `KeyError` crashes.
+
+### ADR-03: Groq Cloud LPU API for Ultra-Fast LLM Inference
+
+- **Context**: Resume parsing and RAG streaming chat required sub-second responsiveness to avoid user drop-off.
+- **Decision**: Adopt Groq LPU inference engine (`langchain-groq`, `llama-3.3-70b-versatile`) as the primary LLM provider.
+- **Consequences**: Delivers ultra-low latency ($< 1\text{ s}$ streaming start) while maintaining fallback routing to Gemini/OpenAI if rate limits occur.
 
 ---
 
