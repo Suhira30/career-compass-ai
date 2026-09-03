@@ -1,0 +1,47 @@
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+backend/.venv/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.npm
+
+# Environment Variables & Keys (Security - Never Commit Secret Keys)
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Database & Local Storage Caches
+*.db
+*.sqlite3
+backend/data/vector_store/*
+!backend/data/vector_store/.gitkeep
+
+# IDEs & System Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.gitkeep
+
+

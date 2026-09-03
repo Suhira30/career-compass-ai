@@ -16,8 +16,8 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 1.1: Backend Foundation & Environment Setup
 
-- [ ] **Task 1.1.1**: Initialize Python 3.11+ environment and virtual environment (`.venv`).
-- [ ] **Task 1.1.2**: Setup `backend/pyproject.toml` or `requirements.txt` with dependencies (`fastapi`, `uvicorn`, `pydantic`, `langchain`, `pypdf`, `python-docx`, `chromadb`, `sqlalchemy`).
+- [x] **Task 1.1.1**: Initialize Python 3.11+ environment and virtual environment (`.venv`).
+- [x] **Task 1.1.2**: Setup `backend/pyproject.toml` or `requirements.txt` with dependencies (`fastapi`, `uvicorn`, `pydantic`, `langchain`, `pypdf`, `python-docx`, `chromadb`, `sqlalchemy`).
 - [ ] **Task 1.1.3**: Configure core application structure in `backend/app/` (`core/`, `api/`, `models/`, `services/`, `utils/`).
 - [ ] **Task 1.1.4**: Setup `backend/app/core/config.py` for environment variables (`LLM_API_KEY`, `VECTOR_DB_DIR`, `DATABASE_URL`, `CORS_ORIGINS`).
 
