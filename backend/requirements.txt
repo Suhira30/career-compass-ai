@@ -19,6 +19,8 @@ tiktoken>=0.6.0
 
 # Vector Database & Embeddings
 chromadb>=0.4.22
+pinecone-client>=3.1.0
+langchain-pinecone>=0.1.0
 sentence-transformers>=2.5.0
 
 # Document Parsers
@@ -28,6 +30,7 @@ python-docx>=1.1.0
 # Database & ORM
 sqlalchemy>=2.0.28
 alembic>=1.13.1
+psycopg2-binary>=2.9.9
 
 # Resilience, Security & Utilities
 tenacity>=8.2.3

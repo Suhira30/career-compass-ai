@@ -33,10 +33,10 @@ graph TD
     User([Job Seeker / Student]) -->|Interacts via Browser| WebUI[Career Compass AI Web Frontend]
     WebUI -->|HTTPS / REST API| Backend[FastAPI Backend Application]
 
-    Backend -->|LLM Queries / Embeddings| LLMService[External LLM Service / Gemini / OpenAI API]
-    Backend -->|Vector Search| VectorDB[(Vector DB / ChromaDB)]
-    Backend -->|Profile & Cache Storage| RelationalDB[(Relational DB / SQLite / PostgreSQL)]
-    Backend -->|Doc Parsing| ParserLib[PDF / DOCX Parsing Engine]
+    Backend -->|Groq LPU Inference API| GroqLLM[Groq Cloud API: Llama-3.3-70B]
+    Backend -->|Vector Search| PineconeDB[(Pinecone Cloud Vector DB / ChromaDB)]
+    Backend -->|Profile & App Persistence| SupabaseDB[(Supabase PostgreSQL DB / SQLite)]
+    Backend -->|Doc Parsing| ParserLib[PyPDF / Python-Docx Engine]
 ```
 
 ### Actors & External Interfaces
@@ -233,9 +233,10 @@ erDiagram
 
 ## 11. External Services and Integrations
 
-- **LLM Provider API**: Google Gemini API / OpenAI API for core reasoning, parsing, and chat.
-- **Document Parser**: `pypdf` / `pdfplumber` for PDF text extraction; `python-docx` for Word document processing.
-- **Vector Database**: Local ChromaDB instance (MVP) with seamless cloud migration path (Qdrant Cloud / Pinecone).
+- **LLM Provider API**: **Groq Cloud LPU Inference API** (`llama-3.3-70b-versatile`) for ultra-low latency parsing, gap evaluation, and streaming chat.
+- **Relational Database**: **Supabase PostgreSQL** for cloud persistence of profiles, job criteria, and gap analysis results.
+- **Vector Database**: **Pinecone Cloud Serverless** (`career-compass-index`, 384/768-dim, Cosine metric) for zero-maintenance RAG vector search (ChromaDB for local fallback).
+- **Document Parsers**: `pypdf` for PDF text extraction; `python-docx` for Word document processing.
 
 ---
 
@@ -344,14 +345,15 @@ graph TD
 
 ## 18. Technology Decisions
 
-| Technology Component     | Selection                            | Rationale                                                                                            |
-| :----------------------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------- |
-| **Frontend Framework**   | React + TypeScript + Vite            | High performance, strict typing for complex profile state, fast developer feedback loop.             |
-| **Backend Framework**    | FastAPI (Python 3.11+)               | Async native, automatic OpenAPI documentation, seamless integration with Python AI libraries.        |
-| **AI Orchestration**     | LangChain (`langchain-groq`)         | Vendor-agnostic prompt templates, structured output parsing, and native streaming support.           |
-| **LLM Inference Engine** | **Groq Cloud LPU** (`llama-3.3-70b`) | Ultra-fast token inference ($> 500\text{ tokens/sec}$), ultra-low latency for parsing and streaming. |
-| **Vector DB**            | ChromaDB (MVP)                       | Lightweight, zero-config embedding store easily portable to Qdrant/Pinecone in production.           |
-| **Validation Layer**     | Pydantic v2                          | High-speed data validation and seamless LLM structured output enforcement.                           |
+| Technology Component        | Selection                            | Rationale                                                                                            |
+| :-------------------------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------- |
+| **Frontend Framework**      | React + TypeScript + Vite            | High performance, strict typing for complex profile state, fast developer feedback loop.             |
+| **Backend Framework**       | FastAPI (Python 3.11+)               | Async native, automatic OpenAPI documentation, seamless integration with Python AI libraries.        |
+| **AI Orchestration**        | LangChain (`langchain-groq`)         | Vendor-agnostic prompt templates, structured output parsing, and native streaming support.           |
+| **LLM Inference Engine**    | **Groq Cloud LPU** (`llama-3.3-70b`) | Ultra-fast token inference ($> 500\text{ tokens/sec}$), ultra-low latency for parsing and streaming. |
+| **Relational SQL Database** | **Supabase PostgreSQL**              | Cloud-native managed Postgres with 500MB free storage, connection pooling, and web dashboard.        |
+| **Vector AI Database**      | **Pinecone Cloud Serverless**        | 2GB free serverless vector storage (`career-compass-index`, Cosine metric) for zero-disk RAG.        |
+| **Validation Layer**        | Pydantic v2                          | High-speed data validation and seamless LLM structured output enforcement.                           |
 
 ---
 
@@ -374,6 +376,18 @@ graph TD
 - **Context**: Resume parsing and RAG streaming chat required sub-second responsiveness to avoid user drop-off.
 - **Decision**: Adopt Groq LPU inference engine (`langchain-groq`, `llama-3.3-70b-versatile`) as the primary LLM provider.
 - **Consequences**: Delivers ultra-low latency ($< 1\text{ s}$ streaming start) while maintaining fallback routing to Gemini/OpenAI if rate limits occur.
+
+### ADR-04: Supabase PostgreSQL for Relational Database Persistence
+
+- **Context**: Need a robust, cloud-managed SQL database for user profiles, job criteria, and analysis results.
+- **Decision**: Adopt Supabase PostgreSQL via SQLAlchemy ORM and `psycopg2-binary`, keeping SQLite for local offline development.
+- **Consequences**: Provides high-performance SQL persistence with zero code changes between local and cloud environments.
+
+### ADR-05: Pinecone Cloud Serverless for RAG Vector Storage
+
+- **Context**: Hosting backend on serverless/cloud platforms requires vector storage without managing local server disks.
+- **Decision**: Adopt Pinecone Cloud Serverless (`langchain-pinecone`, 384/768-dim, Cosine metric).
+- **Consequences**: Offloads vector indexing and semantic RAG search to Pinecone's 2GB free serverless tier.
 
 ---
 

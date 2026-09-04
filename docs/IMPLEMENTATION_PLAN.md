@@ -18,8 +18,20 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 - [x] **Task 1.1.1**: Initialize Python 3.11+ environment and virtual environment (`.venv`).
 - [x] **Task 1.1.2**: Setup `backend/pyproject.toml` or `requirements.txt` with dependencies (`fastapi`, `uvicorn`, `pydantic`, `langchain`, `pypdf`, `python-docx`, `chromadb`, `sqlalchemy`).
-- [ ] **Task 1.1.3**: Configure core application structure in `backend/app/` (`core/`, `api/`, `models/`, `services/`, `utils/`).
-- [ ] **Task 1.1.4**: Setup `backend/app/core/config.py` for environment variables (`LLM_API_KEY`, `VECTOR_DB_DIR`, `DATABASE_URL`, `CORS_ORIGINS`).
+- [ ] **Task 1.1.3**: Configure core application modular architecture in `backend/app/`:
+  - [x] `main.py`: FastAPI application entry point, CORS middleware, and route mounting.
+  - [x] `core/`: Application settings & environment configuration (`config.py`).
+  - [ ] `api/`: REST API route controllers (`api/v1/`):
+    - [x] `POST /api/v1/profile` & `GET /api/v1/profile/{id}` (User Profile Management - FR-01)
+    - [ ] `POST /api/v1/resume/upload` (Resume Extraction - FR-02, FR-03)
+    - [ ] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
+    - [ ] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
+    - [ ] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
+    - [ ] `POST /api/v1/chat/message` (Streaming RAG AI Career Assistant - FR-10)
+  - [ ] `models/`: Data definitions (Pydantic validation schemas & SQLAlchemy database models).
+  - [ ] `services/`: AI & business logic modules (`services/extractors/`, `services/gap_analysis/`, `services/rag/`).
+  - [ ] `utils/`: Text sanitization, file validators, and helper utilities.
+- [ ] **Task 1.1.4**: Setup `backend/app/core/config.py` for environment variables (`GROQ_API_KEY`, `VECTOR_DB_DIR`, `DATABASE_URL`, `CORS_ORIGINS`).
 
 ### Task 1.2: Frontend Foundation & Component Architecture
 

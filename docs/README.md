@@ -77,8 +77,8 @@ graph TD
     end
 
     subgraph Persistence ["Persistence Layer"]
-        RDB[(Relational DB: Profiles / Jobs)]
-        VDB[(Vector DB: Chroma / Qdrant)]
+        RDB[(Relational DB: Supabase PostgreSQL / SQLite)]
+        VDB[(Vector DB: Pinecone Cloud / ChromaDB)]
     end
 
     UI -->|"HTTPS / REST API"| API
@@ -164,7 +164,7 @@ career-compass-ai/
 │   │   └── App.tsx
 │   ├── package.json
 │   └── vite.config.ts
-├── docs/                    # PRD.md, SRS.md, SAD.md, IMPLEMENTATION_PLAN.md
+├── docs/                    # PRD.md, SRS.md, SAD.md, IMPLEMENTATION_PLAN.md, ApiDocument.md
 ├── tests/                   # Pytest Unit & Integration Suite
 ├── docker-compose.yml
 └── README.md
@@ -216,6 +216,8 @@ sequenceDiagram
 - **Python**: 3.11 or higher
 - **Node.js**: 18.0 or higher
 - **Groq API Key**: Obtain a free API key from [Groq Console](https://console.groq.com/keys)
+- **Pinecone API Key**: Obtain a free key & create index from [Pinecone Console](https://app.pinecone.io)
+- **Supabase Database**: Create a project & copy connection string from [Supabase Console](https://supabase.com)
 - **Docker** _(Optional)_: Desktop v20+
 
 ### Backend Setup
@@ -232,7 +234,7 @@ sequenceDiagram
    # macOS/Linux
    source .venv/bin/activate
    ```
-3. Install dependencies (includes `langchain-groq`):
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
@@ -339,7 +341,7 @@ graph TD
     subgraph DataProcessing ["Data Processing"]
         DP1["Extractor: Structured Candidate Profile"]
         DP2["Extractor: Structured Job Requirements"]
-        DP3[(Vector DB: Chroma / FAISS)]
+        DP3[(Vector DB: Pinecone / Chroma)]
     end
 
     L1 --> DP1
