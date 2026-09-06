@@ -234,6 +234,10 @@ erDiagram
 ## 11. External Services and Integrations
 
 - **LLM Provider API**: **Groq Cloud LPU Inference API** (`llama-3.3-70b-versatile`) for ultra-low latency parsing, gap evaluation, and streaming chat.
+- **LLM Provider APIs (Multi-Provider Fallback Chain)**:
+  - **Primary**: **Groq Cloud LPU Inference API** (`llama-3.3-70b-versatile`) for ultra-low latency parsing, gap evaluation, and streaming chat.
+  - **Fallback 1**: **Google Gemini API** (`gemini-2.0-flash`) triggered automatically if Groq encounters rate limits, timeouts, or downtime.
+  - **Fallback 2**: **OpenAI API** (`gpt-4o-mini`) triggered if both Groq and Gemini are unavailable.
 - **Relational Database**: **Supabase PostgreSQL** for cloud persistence of profiles, job criteria, and gap analysis results.
 - **Vector Database**: **Pinecone Cloud Serverless** (`career-compass-index`, 384/768-dim, Cosine metric) for zero-maintenance RAG vector search (ChromaDB for local fallback).
 - **Document Parsers**: `pypdf` for PDF text extraction; `python-docx` for Word document processing.
@@ -252,16 +256,35 @@ sequenceDiagram
     participant API
     participant Extractor
     participant LLM
+    participant LLMChain as Multi-LLM Engine (Groq -> Gemini -> OpenAI)
 
     User->>Frontend: Upload Resume (PDF/DOCX)
     Frontend->>API: POST /api/v1/resume/upload
     API->>Extractor: Extract Text from Document
     Extractor->>LLM: Send Document Text + Pydantic Extraction Schema
     LLM-->>Extractor: Return Structured JSON (Skills, Certs, Links, Exp)
+    API->>Extractor: Extract Text from Document Stream (RAM Only)
+    Extractor->>LLMChain: Send Document Text + Pydantic Extraction Schema (Try Groq)
+    alt Groq Success
+        LLMChain-->>Extractor: Structured JSON (Skills, Certs, Links, Exp)
+    else Groq Failure / Rate Limit
+        LLMChain->>LLMChain: Fallback to Google Gemini (gemini-2.0-flash)
+        alt Gemini Success
+            LLMChain-->>Extractor: Structured JSON
+        else Gemini Failure
+            LLMChain->>LLMChain: Fallback to OpenAI (gpt-4o-mini)
+            LLMChain-->>Extractor: Structured JSON
+        end
+    end
+    Extractor-->>API: Verified Resume JSON Payload
+    API-->>Frontend: HTTP 200 OK + Extracted Resume Data
+```
+
     Extractor-->>API: Validated Profile Entity Data
     API-->>Frontend: 200 OK + Extracted Data JSON
     Frontend->>User: Display Pre-filled Profile for Confirmation
-```
+
+````
 
 ### 12.2 Skill Gap & Career Match Assessment Workflow
 
@@ -282,7 +305,7 @@ sequenceDiagram
     GapEngine-->>API: Assessment & Priority Skill Recommendations
     API-->>Frontend: 200 OK (Match Results + Priorities)
     Frontend->>User: Render Skill Gap Matrix & Readiness Score Card
-```
+````
 
 ---
 

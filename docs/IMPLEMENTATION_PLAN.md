@@ -23,7 +23,7 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
   - [x] `core/`: Application settings & environment configuration (`config.py`).
   - [ ] `api/`: REST API route controllers (`api/v1/`):
     - [x] `POST /api/v1/profile` & `GET /api/v1/profile/{id}` (User Profile Management - FR-01)
-    - [ ] `POST /api/v1/resume/upload` (Resume Extraction - FR-02, FR-03)
+    - [x] `POST /api/v1/resume/upload` (Resume Extraction - FR-02, FR-03)
     - [ ] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
     - [ ] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
     - [ ] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
@@ -59,10 +59,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 2.2: Resume Upload & Extraction Engine (FR-02, FR-03)
 
-- [ ] **Task 2.2.1**: Implement file parser utility (`backend/app/services/extractors/file_parser.py`) supporting `.pdf` (`pypdf`) and `.docx` (`python-docx`).
-- [ ] **Task 2.2.2**: Define Pydantic schema `ExtractedResumeSchema` (Technical Skills, Soft Skills, Education, Work Experience, Projects, Certifications with links, GitHub/LinkedIn/Portfolio links).
-- [ ] **Task 2.2.3**: Implement LLM structured extractor (`backend/app/services/extractors/resume_extractor.py`) using JSON schema enforcement.
-- [ ] **Task 2.2.4**: Expose `/api/v1/resume/upload` endpoint returning structured profile JSON for user verification.
+- [x] **Task 2.2.1**: Implement file parser utility (`backend/app/services/extractors/file_parser.py`) supporting `.pdf` (`pypdf`) and `.docx` (`python-docx`).
+- [x] **Task 2.2.2**: Define Pydantic schema `ExtractedResumeSchema` (Technical Skills, Soft Skills, Education, Work Experience, Projects, Certifications with links, GitHub/LinkedIn/Portfolio links).
+- [x] **Task 2.2.3**: Implement LLM structured extractor (`backend/app/services/extractors/resume_extractor.py`) using JSON schema enforcement.
+- [x] **Task 2.2.4**: Expose `/api/v1/resume/upload` endpoint returning structured profile JSON for user verification.
 
 ### Task 2.3: Job Description Ingestion & Parsing Engine (FR-04, FR-05)
 

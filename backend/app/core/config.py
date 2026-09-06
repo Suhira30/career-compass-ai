@@ -45,8 +45,11 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = Field(default="llama-3.3-70b-versatile", description="Default Groq model")
     
     # Fallback LLM Keys
+    # Fallback LLM Configuration
     GEMINI_API_KEY: str = Field(default="")
+    GEMINI_MODEL: str = Field(default="gemini-2.0-flash", description="Fallback Gemini model")
     OPENAI_API_KEY: str = Field(default="")
+    OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="Fallback OpenAI model")
 
     # Database & Vector Store Settings
     DATABASE_URL: str = Field(

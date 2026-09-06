@@ -175,6 +175,7 @@ This Requirements Specification Document (RSD) defines the functional and non-fu
 
 - **Robust File Validation**: System gracefully handles invalid file types (e.g., `.exe`, `.png`), corrupted documents, or files exceeding size limits.
 - **Service Resiliency**: Graceful fallback handling in event of AI service timeouts or API failures (e.g., retries with friendly error messages).
+- **Service Resiliency & Multi-LLM Failover**: Automated primary-to-fallback routing across Groq LPU (Primary), Google Gemini (Fallback 1), and OpenAI (Fallback 2) in the event of API rate limits (HTTP 429), timeouts, or service outages.
 - **Missing Data Resilience**: System operates smoothly even when user profile data or job descriptions contain incomplete or omitted information.
 
 ### NFR-05: Maintainability & Architecture

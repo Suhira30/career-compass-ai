@@ -1,17 +1,19 @@
 # Career Compass AI — API Documentation Specification
 
 ## Project Title
-**Career Compass AI** — *AI-Powered Career Navigation, Skill Gap Analysis & Upskilling Platform*
+
+**Career Compass AI** — _AI-Powered Career Navigation, Skill Gap Analysis & Upskilling Platform_
 
 ---
 
 ## 1. Overview & General Conventions
+
 This document specifies the RESTful API endpoints for the **Career Compass AI** backend service.
 
-* **Base URL**: `http://localhost:8000/api/v1`
-* **Protocol**: `HTTP / HTTPS`
-* **Data Format**: `JSON` (`application/json`) except file uploads (`multipart/form-data`)
-* **Interactive API Explorer**: `http://localhost:8000/docs` (Swagger UI) / `http://localhost:8000/redoc` (ReDoc)
+- **Base URL**: `http://localhost:8000/api/v1`
+- **Protocol**: `HTTP / HTTPS`
+- **Data Format**: `JSON` (`application/json`) except file uploads (`multipart/form-data`)
+- **Interactive API Explorer**: `http://localhost:8000/docs` (Swagger UI) / `http://localhost:8000/redoc` (ReDoc)
 
 ---
 
@@ -20,12 +22,14 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ### 2.1 User Profile Management (`/api/v1/profile`)
 
 #### **Endpoint**: `POST /api/v1/profile`
-* **Description**: Creates or updates a user's career profile. Can be populated manually or auto-filled via resume extraction.
-* **HTTP Method**: `POST`
-* **Content-Type**: `application/json`
-* **Target Requirement**: `FR-01`
+
+- **Description**: Creates or updates a user's career profile. Can be populated manually or auto-filled via resume extraction.
+- **HTTP Method**: `POST`
+- **Content-Type**: `application/json`
+- **Target Requirement**: `FR-01`
 
 **Request Payload Schema**:
+
 ```json
 {
   "full_name": "Jane Doe",
@@ -41,6 +45,7 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ```
 
 **Response Payload Schema (201 Created / 200 OK)**:
+
 ```json
 {
   "profile_id": "usr_987654321",
@@ -54,24 +59,29 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ---
 
 #### **Endpoint**: `GET /api/v1/profile/{profile_id}`
-* **Description**: Fetches existing user profile details by ID.
-* **HTTP Method**: `GET`
-* **Response Payload Schema (200 OK)**: Returns full profile JSON object.
+
+- **Description**: Fetches existing user profile details by ID.
+- **HTTP Method**: `GET`
+- **Response Payload Schema (200 OK)**: Returns full profile JSON object.
 
 ---
 
 ### 2.2 Resume Upload & Extraction (`/api/v1/resume/upload`)
 
 #### **Endpoint**: `POST /api/v1/resume/upload`
-* **Description**: Accepts `.pdf` or `.docx` resume file uploads. Extracts structured entities (skills, experience, certs, GitHub/LinkedIn links) using Groq Llama-3.3-70B.
-* **HTTP Method**: `POST`
-* **Content-Type**: `multipart/form-data`
-* **Target Requirement**: `FR-02`, `FR-03`
+
+- **Description**: Accepts `.pdf` or `.docx` resume file uploads. Extracts structured entities (skills, experience, certs, GitHub/LinkedIn links) using Groq Llama-3.3-70B.
+- **Description**: Accepts `.pdf` or `.docx` resume file uploads. Ephemerally extracts structured entities (skills, experience, certs, GitHub/LinkedIn links) using primary Groq Llama-3.3-70B with automated fallback to Google Gemini (`gemini-2.0-flash`) and OpenAI (`gpt-4o-mini`).
+- **HTTP Method**: `POST`
+- **Content-Type**: `multipart/form-data`
+- **Target Requirement**: `FR-02`, `FR-03`
 
 **Request Payload**:
-* Form parameter `file`: File binary (`.pdf` or `.docx`, max 10MB).
+
+- Form parameter `file`: File binary (`.pdf` or `.docx`, max 10MB).
 
 **Response Payload Schema (200 OK)**:
+
 ```json
 {
   "file_name": "Jane_Doe_Resume.pdf",
@@ -119,12 +129,14 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ### 2.3 Job Description Ingestion & Parsing (`/api/v1/jobs/extract`)
 
 #### **Endpoint**: `POST /api/v1/jobs/extract`
-* **Description**: Parses raw pasted target Job Description text into structured criteria.
-* **HTTP Method**: `POST`
-* **Content-Type**: `application/json`
-* **Target Requirement**: `FR-04`, `FR-05`
+
+- **Description**: Parses raw pasted target Job Description text into structured criteria.
+- **HTTP Method**: `POST`
+- **Content-Type**: `application/json`
+- **Target Requirement**: `FR-04`, `FR-05`
 
 **Request Payload Schema**:
+
 ```json
 {
   "raw_job_description": "We are seeking a Senior AI Engineer. Required: Python, FastAPI, Docker, Groq/OpenAI, ChromaDB. Preferred: Kubernetes, CI/CD. Work Mode: Remote. Location: San Francisco, CA. Salary: $140,000 - $170,000."
@@ -132,12 +144,19 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ```
 
 **Response Payload Schema (200 OK)**:
+
 ```json
 {
   "job_id": "job_123456789",
   "extracted_job": {
     "job_title": "Senior AI Engineer",
-    "required_skills": ["Python", "FastAPI", "Docker", "Groq/OpenAI", "ChromaDB"],
+    "required_skills": [
+      "Python",
+      "FastAPI",
+      "Docker",
+      "Groq/OpenAI",
+      "ChromaDB"
+    ],
     "preferred_skills": ["Kubernetes", "CI/CD"],
     "required_experience": "3+ years",
     "education_requirements": "Bachelor's in CS or equivalent",
@@ -153,12 +172,14 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ### 2.4 Skill Gap Analysis & Suitability Scoring (`/api/v1/analysis/gap`)
 
 #### **Endpoint**: `POST /api/v1/analysis/gap`
-* **Description**: Compares candidate's extracted profile skills against extracted job criteria. Generates a 3-way skill matrix and readiness match tier (`High Match`, `Moderate Match`, `Low Match`).
-* **HTTP Method**: `POST`
-* **Content-Type**: `application/json`
-* **Target Requirement**: `FR-06`, `FR-07`
+
+- **Description**: Compares candidate's extracted profile skills against extracted job criteria. Generates a 3-way skill matrix and readiness match tier (`High Match`, `Moderate Match`, `Low Match`).
+- **HTTP Method**: `POST`
+- **Content-Type**: `application/json`
+- **Target Requirement**: `FR-06`, `FR-07`
 
 **Request Payload Schema**:
+
 ```json
 {
   "profile_id": "usr_987654321",
@@ -167,6 +188,7 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ```
 
 **Response Payload Schema (200 OK)**:
+
 ```json
 {
   "analysis_id": "anl_555666777",
@@ -178,10 +200,18 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
     "partially_available_skills": ["Groq/OpenAI", "ChromaDB"]
   },
   "assessment": {
-    "strengths": ["Strong foundational Python experience", "FastAPI REST knowledge"],
-    "skill_gaps": ["Lacks containerization (Docker)", "Missing cloud deployment (Kubernetes)"],
+    "strengths": [
+      "Strong foundational Python experience",
+      "FastAPI REST knowledge"
+    ],
+    "skill_gaps": [
+      "Lacks containerization (Docker)",
+      "Missing cloud deployment (Kubernetes)"
+    ],
     "potential_weaknesses": ["Limited DevOps background"],
-    "recommended_improvements": ["Focus on Docker containerization first, then CI/CD pipelines."]
+    "recommended_improvements": [
+      "Focus on Docker containerization first, then CI/CD pipelines."
+    ]
   }
 }
 ```
@@ -191,12 +221,14 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ### 2.5 Personalized Learning Roadmap Generator (`/api/v1/roadmap/generate`)
 
 #### **Endpoint**: `POST /api/v1/roadmap/generate`
-* **Description**: Ranks missing skills into priority badges (`Priority 1`, `Priority 2`, `Priority 3`) and queries ChromaDB vector store to produce a week-by-week learning plan.
-* **HTTP Method**: `POST`
-* **Content-Type**: `application/json`
-* **Target Requirement**: `FR-08`, `FR-09`
+
+- **Description**: Ranks missing skills into priority badges (`Priority 1`, `Priority 2`, `Priority 3`) and queries ChromaDB vector store to produce a week-by-week learning plan.
+- **HTTP Method**: `POST`
+- **Content-Type**: `application/json`
+- **Target Requirement**: `FR-08`, `FR-09`
 
 **Request Payload Schema**:
+
 ```json
 {
   "analysis_id": "anl_555666777",
@@ -206,6 +238,7 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ```
 
 **Response Payload Schema (200 OK)**:
+
 ```json
 {
   "roadmap_id": "rdm_999888777",
@@ -223,17 +256,13 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
         "Learn Dockerfile syntax and image building",
         "Containerize FastAPI backend application"
       ],
-      "resources": [
-        "https://docs.docker.com/get-started/"
-      ]
+      "resources": ["https://docs.docker.com/get-started/"]
     },
     {
       "week": 2,
       "focus_skill": "Docker Compose & Networking",
       "target_hours": 5,
-      "tasks": [
-        "Write docker-compose.yml for FastAPI + ChromaDB"
-      ]
+      "tasks": ["Write docker-compose.yml for FastAPI + ChromaDB"]
     }
   ]
 }
@@ -244,12 +273,14 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ### 2.6 Streaming RAG AI Career Assistant (`/api/v1/chat/message`)
 
 #### **Endpoint**: `POST /api/v1/chat/message`
-* **Description**: RAG-powered streaming chatbot providing interactive career guidance. Uses user profile + gap analysis context + ChromaDB knowledge base.
-* **HTTP Method**: `POST`
-* **Content-Type**: `application/json`
-* **Target Requirement**: `FR-10`
+
+- **Description**: RAG-powered streaming chatbot providing interactive career guidance. Uses user profile + gap analysis context + ChromaDB knowledge base.
+- **HTTP Method**: `POST`
+- **Content-Type**: `application/json`
+- **Target Requirement**: `FR-10`
 
 **Request Payload Schema**:
+
 ```json
 {
   "session_id": "sess_11223344",
@@ -259,6 +290,7 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 ```
 
 **Response Payload Schema (Server-Sent Events / Stream or JSON)**:
+
 ```json
 {
   "session_id": "sess_11223344",
@@ -274,10 +306,10 @@ This document specifies the RESTful API endpoints for the **Career Compass AI** 
 
 ## 3. Error Handling & HTTP Status Codes
 
-| Status Code | Description | Example Cause |
-| :--- | :--- | :--- |
-| `200 OK` / `201 Created` | Success | Request executed successfully. |
-| `400 Bad Request` | Invalid Input | Uploaded file format is not `.pdf`/`.docx` or exceeds 10MB. |
-| `422 Unprocessable Entity` | Validation Error | Request JSON fails Pydantic schema validation. |
-| `429 Too Many Requests` | Rate Limit Exceeded | Groq API rate limit exceeded (handled by backend retry handlers). |
-| `500 Internal Server Error` | Server Failure | Unexpected backend error. |
+| Status Code                 | Description         | Example Cause                                                     |
+| :-------------------------- | :------------------ | :---------------------------------------------------------------- |
+| `200 OK` / `201 Created`    | Success             | Request executed successfully.                                    |
+| `400 Bad Request`           | Invalid Input       | Uploaded file format is not `.pdf`/`.docx` or exceeds 10MB.       |
+| `422 Unprocessable Entity`  | Validation Error    | Request JSON fails Pydantic schema validation.                    |
+| `429 Too Many Requests`     | Rate Limit Exceeded | Groq API rate limit exceeded (handled by backend retry handlers). |
+| `500 Internal Server Error` | Server Failure      | Unexpected backend error.                                         |
