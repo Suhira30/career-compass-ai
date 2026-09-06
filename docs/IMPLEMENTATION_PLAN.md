@@ -24,7 +24,7 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
   - [ ] `api/`: REST API route controllers (`api/v1/`):
     - [x] `POST /api/v1/profile` & `GET /api/v1/profile/{id}` (User Profile Management - FR-01)
     - [x] `POST /api/v1/resume/upload` (Resume Extraction - FR-02, FR-03)
-    - [ ] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
+    - [x] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
     - [ ] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
     - [ ] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
     - [ ] `POST /api/v1/chat/message` (Streaming RAG AI Career Assistant - FR-10)
@@ -66,10 +66,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 2.3: Job Description Ingestion & Parsing Engine (FR-04, FR-05)
 
-- [ ] **Task 2.3.1**: Define `ExtractedJobSchema` Pydantic model (Job Title, Required Skills, Preferred Skills, Required Experience, Education, Responsibilities, Work Mode, Location, Salary).
-- [ ] **Task 2.3.2**: Implement Job Description LLM parser (`backend/app/services/extractors/jd_extractor.py`).
-- [ ] **Task 2.3.3**: Add fallback logic for unlisted optional fields (e.g., default Salary to "Not Specified").
-- [ ] **Task 2.3.4**: Expose `/api/v1/jobs/extract` endpoint accepting raw pasted text.
+- [x] **Task 2.3.1**: Define `ExtractedJobSchema` Pydantic model (Job Title, Required Skills, Preferred Skills, Required Experience, Education, Responsibilities, Work Mode, Location, Salary).
+- [x] **Task 2.3.2**: Implement Job Description LLM parser (`backend/app/services/extractors/jd_extractor.py`).
+- [x] **Task 2.3.3**: Add fallback logic for unlisted optional fields (e.g., default Salary to "Not Specified").
+- [x] **Task 2.3.4**: Expose `/api/v1/jobs/extract` endpoint accepting raw pasted text.
 
 ### Task 2.4: Skill Gap Analysis & Suitability Scorer (FR-06, FR-07)
 
