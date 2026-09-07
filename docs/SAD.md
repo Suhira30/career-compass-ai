@@ -273,20 +273,13 @@ sequenceDiagram
             LLMChain-->>Extractor: Structured JSON
         else Gemini Failure
             LLMChain->>LLMChain: Fallback to OpenAI (gpt-4o-mini)
-            LLMChain-->>Extractor: Structured JSON
-        end
-    end
     Extractor-->>API: Verified Resume JSON Payload
     API-->>Frontend: HTTP 200 OK + Extracted Resume Data
 ```
 
-    Extractor-->>API: Validated Profile Entity Data
-    API-->>Frontend: 200 OK + Extracted Data JSON
-    Frontend->>User: Display Pre-filled Profile for Confirmation
+---
 
-````
-
-### 12.2 Skill Gap & Career Match Assessment Workflow
+### 12.2 Skill Gap & Match Assessment Workflow (`POST /api/v1/analysis/gap`)
 
 ```mermaid
 sequenceDiagram
@@ -294,18 +287,52 @@ sequenceDiagram
     actor User
     participant Frontend
     participant API
-    participant GapEngine
-    participant LLM
+    participant SkillMatcher as skill_matcher.py (Hybrid Engine)
+    participant LCELChain as Explicit LCEL Chain (Groq -> Gemini -> OpenAI)
 
-    User->>Frontend: Submit Target JD Text + Select Profile
-    Frontend->>API: POST /api/v1/analysis/gap-analysis
-    API->>GapEngine: Compare Profile Vector vs. JD Requirements
-    GapEngine->>LLM: Evaluate Partial Skills & Match Tier Heuristics
-    LLM-->>GapEngine: Matched, Missing, Partial Skills + Readiness Tier (High/Mod/Low)
-    GapEngine-->>API: Assessment & Priority Skill Recommendations
-    API-->>Frontend: 200 OK (Match Results + Priorities)
-    Frontend->>User: Render Skill Gap Matrix & Readiness Score Card
-````
+    User->>Frontend: Select Profile ID + Job ID
+    Frontend->>API: POST /api/v1/analysis/gap (profile_id, job_id)
+    API->>SkillMatcher: Compute Deterministic Overlap & Match Score
+    Note over SkillMatcher: Python Set Math: Calculates 3-Way Matrix & Match % (0-100%)
+    SkillMatcher->>LCELChain: Execute (PromptTemplate | structured_llm)
+    alt Primary Provider (Groq Llama 3.3)
+        LCELChain-->>SkillMatcher: Qualitative Assessment (Strengths, Gaps, Weaknesses, Recommendations)
+    else Fallback Providers (Gemini / OpenAI)
+        LCELChain->>LCELChain: Failover to Gemini 2.0 Flash or GPT-4o mini
+        LCELChain-->>SkillMatcher: Qualitative Assessment
+    end
+    SkillMatcher-->>API: GapAnalysisResponse (analysis_id, match_score, matrix, assessment)
+    API-->>Frontend: HTTP 200 OK + Gap Analysis Payload
+    Frontend->>User: Display Readiness Card, Match Score & Skill Matrix
+```
+
+---
+
+### 12.3 Personalized Learning Roadmap Workflow (`POST /api/v1/roadmap/generate`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Frontend
+    participant API
+    participant Prioritizer as prioritizer.py (Roadmap Engine)
+    participant LCELChain as Explicit LCEL Chain (Groq -> Gemini -> OpenAI)
+
+    User->>Frontend: Input Weekly Hours + Target Weeks
+    Frontend->>API: POST /api/v1/roadmap/generate (analysis_id, hours/week, duration)
+    API->>Prioritizer: Sort Missing Skills into Priority 1, 2, 3 Badges
+    Prioritizer->>LCELChain: Execute LCEL Roadmap Chain (PromptTemplate | structured_llm)
+    alt Primary LLM (Groq Llama 3.3)
+        LCELChain-->>Prioritizer: Week-by-Week Milestones (Tasks, Focus Skill, Hours, Resources)
+    else Failover LLMs (Gemini / OpenAI)
+        LCELChain->>LCELChain: Failover to Gemini 2.0 Flash or GPT-4o mini
+        LCELChain-->>Prioritizer: Week-by-Week Milestones
+    end
+    Prioritizer-->>API: RoadmapGenerateResponse (roadmap_id, badges, weekly_milestones)
+    API-->>Frontend: HTTP 200 OK + Personalized Roadmap Payload
+    Frontend->>User: Render Interactive Week-by-Week Learning Roadmap
+```
 
 ---
 
@@ -411,6 +438,12 @@ graph TD
 - **Context**: Hosting backend on serverless/cloud platforms requires vector storage without managing local server disks.
 - **Decision**: Adopt Pinecone Cloud Serverless (`langchain-pinecone`, 384/768-dim, Cosine metric).
 - **Consequences**: Offloads vector indexing and semantic RAG search to Pinecone's 2GB free serverless tier.
+
+### ADR-06: Explicit LCEL Runnable Chains for AI Pipeline Composition
+
+- **Context**: AI execution pipelines (Skill Gap Assessment, Roadmap Generation) require modular, reusable prompt-model composition with multi-provider failover.
+- **Decision**: Adopt explicit LangChain Expression Language (LCEL) Runnable Chains (`ChatPromptTemplate | structured_llm`) across `skill_matcher.py` and `prioritizer.py`.
+- **Consequences**: Ensures clean template variable injection, seamless multi-provider failover (Groq → Gemini → OpenAI), and async execution support (`ainvoke`).
 
 ---
 
