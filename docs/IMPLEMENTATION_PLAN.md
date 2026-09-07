@@ -27,7 +27,7 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
     - [x] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
     - [x] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
     - [x] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
-    - [ ] `POST /api/v1/chat/message` (Streaming RAG AI Career Assistant - FR-10)
+    - [x] `POST /api/v1/chat/message` (Streaming RAG AI Career Assistant - FR-10)
   - [ ] `models/`: Data definitions (Pydantic validation schemas & SQLAlchemy database models).
   - [ ] `services/`: AI & business logic modules (`services/extractors/`, `services/gap_analysis/`, `services/rag/`).
   - [ ] `utils/`: Text sanitization, file validators, and helper utilities.
@@ -35,10 +35,6 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 1.2: Frontend Foundation & Component Architecture
 
-- [ ] **Task 1.2.1**: Initialize React 18+ TypeScript application with Vite in `frontend/`.
-- [ ] **Task 1.2.2**: Configure Tailwind CSS, Lucide icons, and component styling framework.
-- [ ] **Task 1.2.3**: Setup API client service (`frontend/src/services/api.ts`) with Axios/Fetch interceptors for base URL and error handling.
-- [ ] **Task 1.2.4**: Create global user context / state store for managing active Profile, Job Description, and Analysis Results.
 - [x] **Task 1.2.1**: Initialize React 18+ TypeScript application with Vite in `frontend/`.
 - [x] **Task 1.2.2**: Configure Tailwind CSS, Lucide icons, and component styling framework.
 - [x] **Task 1.2.3**: Setup API client service (`frontend/src/services/api.ts`) with Axios/Fetch interceptors for base URL and error handling.
@@ -91,10 +87,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 2.6: RAG-Powered AI Career Assistant (FR-10)
 
-- [ ] **Task 2.6.1**: Setup RAG retrieval chain (`backend/app/services/rag/chat_chain.py`) combining user profile context + analysis results + vector knowledge base.
-- [ ] **Task 2.6.2**: Implement prompt template answering specific career, resume, and upskilling questions.
-- [ ] **Task 2.6.3**: Enable response streaming via FastAPI `StreamingResponse`.
-- [ ] **Task 2.6.4**: Expose `/api/v1/chat/message` endpoint.
+- [x] **Task 2.6.1**: Setup RAG retrieval chain (`backend/app/services/rag/chat_chain.py`) combining user profile context + analysis results + vector knowledge base.
+- [x] **Task 2.6.2**: Implement prompt template answering specific career, resume, and upskilling questions.
+- [x] **Task 2.6.3**: Enable response streaming via FastAPI `StreamingResponse`.
+- [x] **Task 2.6.4**: Expose `/api/v1/chat/message` endpoint.
 
 ---
 

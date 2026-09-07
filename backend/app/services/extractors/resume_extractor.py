@@ -54,9 +54,6 @@ def _try_gemini(messages) -> ExtractedResumeData:
         raise ValueError("GEMINI_API_KEY is not configured.")
     
     try:
-        llm = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name="llama-3.3-70b-versatile",
         from langchain_google_genai import ChatGoogleGenerativeAI
         llm = ChatGoogleGenerativeAI(
             google_api_key=settings.GEMINI_API_KEY,
