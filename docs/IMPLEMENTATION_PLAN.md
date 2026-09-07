@@ -39,6 +39,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 - [ ] **Task 1.2.2**: Configure Tailwind CSS, Lucide icons, and component styling framework.
 - [ ] **Task 1.2.3**: Setup API client service (`frontend/src/services/api.ts`) with Axios/Fetch interceptors for base URL and error handling.
 - [ ] **Task 1.2.4**: Create global user context / state store for managing active Profile, Job Description, and Analysis Results.
+- [x] **Task 1.2.1**: Initialize React 18+ TypeScript application with Vite in `frontend/`.
+- [x] **Task 1.2.2**: Configure Tailwind CSS, Lucide icons, and component styling framework.
+- [x] **Task 1.2.3**: Setup API client service (`frontend/src/services/api.ts`) with Axios/Fetch interceptors for base URL and error handling.
+- [x] **Task 1.2.4**: Create global user context / state store for managing active Profile, Job Description, and Analysis Results.
 
 ### Task 1.3: Database Schemas & Vector Store Initialization
 
