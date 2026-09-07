@@ -25,7 +25,7 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
     - [x] `POST /api/v1/profile` & `GET /api/v1/profile/{id}` (User Profile Management - FR-01)
     - [x] `POST /api/v1/resume/upload` (Resume Extraction - FR-02, FR-03)
     - [x] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
-    - [ ] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
+    - [x] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
     - [ ] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
     - [ ] `POST /api/v1/chat/message` (Streaming RAG AI Career Assistant - FR-10)
   - [ ] `models/`: Data definitions (Pydantic validation schemas & SQLAlchemy database models).
@@ -44,7 +44,7 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 - [ ] **Task 1.3.1**: Create SQLAlchemy ORM models and Pydantic schemas in `backend/app/models/` for `UserProfile`, `WorkExperience`, `Certification`, `JobDescription`, and `AnalysisResult`.
 - [ ] **Task 1.3.2**: Setup SQLite/PostgreSQL database initialization script (`backend/app/db/init_db.py`).
-- [ ] **Task 1.3.3**: Initialize local ChromaDB client in `backend/app/services/rag/vector_store.py`.
+- [ ] **Task 1.3.3**: Initialize Vector Store Engine in `backend/app/services/rag/vector_store.py` using Pinecone Cloud Serverless (`langchain-pinecone`) with local ChromaDB fallback.
 - [ ] **Task 1.3.4**: Build initial document ingestion script for populating the career knowledge base (Skill Taxonomies, Learning Modules).
 
 ---
@@ -73,10 +73,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 2.4: Skill Gap Analysis & Suitability Scorer (FR-06, FR-07)
 
-- [ ] **Task 2.4.1**: Build Skill Categorization Engine in `backend/app/services/gap_analysis/skill_matcher.py` (Matching, Missing, Partially Available Skills).
-- [ ] **Task 2.4.2**: Implement Readiness Assessment Heuristics (Strengths, Skill Gaps, Weaknesses, Recommended Improvements).
-- [ ] **Task 2.4.3**: Implement Readiness Classification Logic mapping overlap percentages to match categories (`High Match`, `Moderate Match`, `Low Match`).
-- [ ] **Task 2.4.4**: Expose `/api/v1/analysis/gap` endpoint.
+- [x] **Task 2.4.1**: Build Skill Categorization Engine in `backend/app/services/gap_analysis/skill_matcher.py` (Matching, Missing, Partially Available Skills).
+- [x] **Task 2.4.2**: Implement Readiness Assessment Heuristics (Strengths, Skill Gaps, Weaknesses, Recommended Improvements).
+- [x] **Task 2.4.3**: Implement Readiness Classification Logic mapping overlap percentages to match categories (`High Match`, `Moderate Match`, `Low Match`).
+- [x] **Task 2.4.4**: Expose `/api/v1/analysis/gap` endpoint.
 
 ### Task 2.5: Personalized Learning & Prioritization Engine (FR-08, FR-09)
 
