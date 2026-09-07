@@ -1,10 +1,11 @@
 """
-Skill Categorization Engine & Readiness Scorer Service
+Skill Categorization Engine & Readiness Scorer Service with Explicit LCEL Runnable Chains
 """
 
 import logging
 from typing import Tuple, List
 from fastapi import HTTPException, status
+from langchain_core.prompts import ChatPromptTemplate
 from app.core import settings
 from app.models.analysis import SkillMatrix, QualitativeAssessment
 from app.models.profile import UserProfileDetail
@@ -111,7 +112,14 @@ def compute_skill_matrix_and_score(
     return matrix, match_score_percentage, readiness_category
 
 
-def _try_groq(messages) -> QualitativeAssessment:
+def _get_prompt_template() -> ChatPromptTemplate:
+    return ChatPromptTemplate.from_messages([
+        ("system", ASSESSMENT_SYSTEM_PROMPT),
+        ("human", "{gap_summary}"),
+    ])
+
+
+def _try_groq_lcel(summary_text: str) -> QualitativeAssessment:
     if not settings.GROQ_API_KEY:
         raise ValueError("GROQ_API_KEY is missing")
     from langchain_groq import ChatGroq
@@ -121,10 +129,12 @@ def _try_groq(messages) -> QualitativeAssessment:
         temperature=0.1,
     )
     structured_llm = llm.with_structured_output(QualitativeAssessment)
-    return structured_llm.invoke(messages)
+    # Explicit LCEL Runnable Chain Composition (prompt | model)
+    lcel_chain = _get_prompt_template() | structured_llm
+    return lcel_chain.invoke({"gap_summary": summary_text})
 
 
-def _try_gemini(messages) -> QualitativeAssessment:
+def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
     if not settings.GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is missing")
     try:
@@ -135,19 +145,21 @@ def _try_gemini(messages) -> QualitativeAssessment:
             temperature=0.1,
         )
         structured_llm = llm.with_structured_output(QualitativeAssessment)
-        return structured_llm.invoke(messages)
+        # Explicit LCEL Runnable Chain Composition
+        lcel_chain = _get_prompt_template() | structured_llm
+        return lcel_chain.invoke({"gap_summary": summary_text})
     except ImportError:
         import google.generativeai as genai
         import json
         genai.configure(api_key=settings.GEMINI_API_KEY)
         model = genai.GenerativeModel(settings.GEMINI_MODEL)
-        prompt_str = f"{ASSESSMENT_SYSTEM_PROMPT}\n\n{messages[-1][1]}\n\nReturn JSON matching schema: {QualitativeAssessment.model_json_schema()}"
+        prompt_str = f"{ASSESSMENT_SYSTEM_PROMPT}\n\n{summary_text}\n\nReturn JSON matching schema: {QualitativeAssessment.model_json_schema()}"
         response = model.generate_content(prompt_str)
         cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```").strip()
         return QualitativeAssessment.model_validate(json.loads(cleaned_json))
 
 
-def _try_openai(messages) -> QualitativeAssessment:
+def _try_openai_lcel(summary_text: str) -> QualitativeAssessment:
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is missing")
     from langchain_openai import ChatOpenAI
@@ -157,7 +169,9 @@ def _try_openai(messages) -> QualitativeAssessment:
         temperature=0.1,
     )
     structured_llm = llm.with_structured_output(QualitativeAssessment)
-    return structured_llm.invoke(messages)
+    # Explicit LCEL Runnable Chain Composition
+    lcel_chain = _get_prompt_template() | structured_llm
+    return lcel_chain.invoke({"gap_summary": summary_text})
 
 
 def generate_qualitative_assessment(
@@ -168,9 +182,9 @@ def generate_qualitative_assessment(
     category: str,
 ) -> QualitativeAssessment:
     """
-    Generates qualitative strengths, skill gaps, weaknesses, and recommendations using multi-provider LLM fallback.
+    Generates qualitative strengths, skill gaps, weaknesses, and recommendations using explicit LCEL Runnable Chains (prompt | model) with multi-provider fallback.
     """
-    prompt = f"""
+    summary_text = f"""
 Candidate Name: {profile.full_name}
 Current Role: {profile.current_role}
 Target Role: {profile.target_role}
@@ -188,26 +202,22 @@ Skill Matrix Analysis:
 
 Overall Readiness: {category} ({score}%)
 """
-    messages = [
-        ("system", ASSESSMENT_SYSTEM_PROMPT),
-        ("human", prompt),
-    ]
 
-    # Multi-provider LLM Fallback (Groq -> Gemini -> OpenAI)
+    # Multi-provider LCEL Runnable Chain Fallback (Groq -> Gemini -> OpenAI)
     try:
-        return _try_groq(messages)
+        return _try_groq_lcel(summary_text)
     except Exception as exc:
-        logger.warning(f"Groq assessment generation failed: {exc}")
+        logger.warning(f"Groq LCEL chain assessment failed: {exc}")
 
     try:
-        return _try_gemini(messages)
+        return _try_gemini_lcel(summary_text)
     except Exception as exc:
-        logger.warning(f"Gemini assessment generation failed: {exc}")
+        logger.warning(f"Gemini LCEL chain assessment failed: {exc}")
 
     try:
-        return _try_openai(messages)
+        return _try_openai_lcel(summary_text)
     except Exception as exc:
-        logger.warning(f"OpenAI assessment generation failed: {exc}")
+        logger.warning(f"OpenAI LCEL chain assessment failed: {exc}")
 
     # Fallback heuristic assessment if LLMs are offline
     return QualitativeAssessment(
@@ -216,4 +226,3 @@ Overall Readiness: {category} ({score}%)
         potential_weaknesses=["Needs exposure to target role's core technologies"] if matrix.missing_skills else ["General domain readiness"],
         recommended_improvements=[f"Focus on learning {s} first" for s in matrix.missing_skills[:3]] or ["Maintain current skill proficiency"],
     )
-

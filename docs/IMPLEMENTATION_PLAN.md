@@ -26,7 +26,7 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
     - [x] `POST /api/v1/resume/upload` (Resume Extraction - FR-02, FR-03)
     - [x] `POST /api/v1/jobs/extract` (Job Description Parser - FR-04, FR-05)
     - [x] `POST /api/v1/analysis/gap` (Skill Gap Analysis & Match Score - FR-06, FR-07)
-    - [ ] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
+    - [x] `POST /api/v1/roadmap/generate` (Personalized Learning Plan - FR-08, FR-09)
     - [ ] `POST /api/v1/chat/message` (Streaming RAG AI Career Assistant - FR-10)
   - [ ] `models/`: Data definitions (Pydantic validation schemas & SQLAlchemy database models).
   - [ ] `services/`: AI & business logic modules (`services/extractors/`, `services/gap_analysis/`, `services/rag/`).
@@ -80,10 +80,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 2.5: Personalized Learning & Prioritization Engine (FR-08, FR-09)
 
-- [ ] **Task 2.5.1**: Build Skill Prioritization Logic (`backend/app/services/gap_analysis/prioritizer.py`) sorting missing skills into `Priority 1`, `Priority 2`, `Priority 3`.
-- [ ] **Task 2.5.2**: Implement Learning Roadmap Generator considering user's available weekly learning hours and preferred duration.
-- [ ] **Task 2.5.3**: Query ChromaDB vector store to fetch relevant learning resources/modules for prioritized missing skills.
-- [ ] **Task 2.5.4**: Expose `/api/v1/roadmap/generate` endpoint.
+- [x] **Task 2.5.1**: Build Skill Prioritization Logic (`backend/app/services/gap_analysis/prioritizer.py`) sorting missing skills into `Priority 1`, `Priority 2`, `Priority 3`.
+- [x] **Task 2.5.2**: Implement Learning Roadmap Generator considering user's available weekly learning hours and preferred duration.
+- [x] **Task 2.5.3**: Query ChromaDB vector store to fetch relevant learning resources/modules for prioritized missing skills.
+- [x] **Task 2.5.4**: Expose `/api/v1/roadmap/generate` endpoint.
 
 ### Task 2.6: RAG-Powered AI Career Assistant (FR-10)
 
