@@ -42,10 +42,10 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 1.3: Database Schemas & Vector Store Initialization
 
-- [ ] **Task 1.3.1**: Create SQLAlchemy ORM models and Pydantic schemas in `backend/app/models/` for `UserProfile`, `WorkExperience`, `Certification`, `JobDescription`, and `AnalysisResult`.
-- [ ] **Task 1.3.2**: Setup SQLite/PostgreSQL database initialization script (`backend/app/db/init_db.py`).
-- [ ] **Task 1.3.3**: Initialize Vector Store Engine in `backend/app/services/rag/vector_store.py` using Pinecone Cloud Serverless (`langchain-pinecone`) with local ChromaDB fallback.
-- [ ] **Task 1.3.4**: Build initial document ingestion script for populating the career knowledge base (Skill Taxonomies, Learning Modules).
+- [x] **Task 1.3.1**: Create SQLAlchemy ORM models and Pydantic schemas in `backend/app/models/` for `UserProfile`, `WorkExperience`, `Certification`, `JobDescription`, and `AnalysisResult`.
+- [x] **Task 1.3.2**: Setup SQLite/PostgreSQL database initialization script (`backend/app/db/init_db.py`).
+- [x] **Task 1.3.3**: Initialize Vector Store Engine in `backend/app/services/rag/vector_store.py` using Pinecone Cloud Serverless (`langchain-pinecone`) with local ChromaDB fallback.
+- [x] **Task 1.3.4**: Build initial document ingestion script for populating the career knowledge base (Skill Taxonomies, Learning Modules).
 
 ---
 

@@ -42,7 +42,11 @@ async def chat_message(request: ChatMessageInput):
     if request.analysis_id and request.analysis_id in analysis_db:
         analysis = analysis_db[request.analysis_id]
 
-    context_str = format_candidate_context(analysis=analysis, session_history=session_history)
+    context_str = format_candidate_context(
+        analysis=analysis,
+        session_history=session_history,
+        user_message=request.message,
+    )
 
     # 3. Append user message to history
     session_history.append({"role": "user", "content": request.message})

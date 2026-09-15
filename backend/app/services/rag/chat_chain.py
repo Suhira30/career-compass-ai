@@ -1,13 +1,17 @@
 """
 Streaming RAG AI Career Assistant Service (Explicit LCEL Chain)
+
+Integrates candidate gap analysis context with RAG Vector Store search (Pinecone / ChromaDB)
+for grounded, personalized career advice.
 """
 
 import logging
-from typing import List, AsyncGenerator, Dict, Any, Tuple
+from typing import List, AsyncGenerator, Dict, Any, Optional
 from langchain_core.prompts import ChatPromptTemplate
 from app.core import settings
 from app.models.chat import ChatMessageResponse
 from app.models.analysis import GapAnalysisResponse
+from app.services.rag.vector_store import search_relevant_context
 
 logger = logging.getLogger(__name__)
 
@@ -15,14 +19,15 @@ CHAT_SYSTEM_PROMPT = """
 You are Career Compass AI Assistant, an empathetic, highly knowledgeable Senior AI Career Mentor and Technical Strategist.
 Your goal is to guide candidates through their career transition, skill gap analysis, interview preparation, and upskilling roadmap.
 
-Candidate Context Provided:
+Context Provided:
 {context_str}
 
 Instructions:
-- Provide clear, practical, encouraging, and highly specific advice.
-- When answering questions about skill gaps, explain why the skills matter and how to build them.
-- Suggest concrete hands-on projects and interview tips tailored to the target role.
-- Keep tone professional, constructive, and actionable.
+- Ground your upskilling advice, interview prep guidance, and skill taxonomies strictly in the provided Candidate Context and Retrieved Domain Knowledge Base Context.
+- Avoid inventing fake course links or unverified technical advice.
+- Personalize all advice to the candidate's exact background (their matched skills vs missing skills).
+- Provide concrete, actionable hands-on project recommendations and interview tips tailored to the target role.
+- Keep tone professional, constructive, empathetic, and encouraging.
 """
 
 
@@ -33,18 +38,34 @@ def _get_chat_prompt_template() -> ChatPromptTemplate:
     ])
 
 
-def format_candidate_context(analysis: GapAnalysisResponse = None, session_history: List[Dict[str, str]] = None) -> str:
+def format_candidate_context(
+    analysis: Optional[GapAnalysisResponse] = None,
+    session_history: Optional[List[Dict[str, str]]] = None,
+    user_message: str = "",
+) -> str:
     """
-    Formats candidate gap analysis details and past conversation turns into prompt context.
+    Formats candidate gap analysis details, recent chat history, and RAG Vector Store search snippets into prompt context.
     """
     parts = []
+    
+    # 1. Candidate Skill Profile & Gap Analysis Context
     if analysis:
-        parts.append(f"Readiness Match Category: {analysis.readiness_category} ({analysis.match_score_percentage}%)")
+        parts.append(f"Candidate Match Category: {analysis.readiness_category} ({analysis.match_score_percentage}%)")
         parts.append(f"Matched Skills: {', '.join(analysis.skill_matrix.matched_skills) if analysis.skill_matrix.matched_skills else 'None'}")
         parts.append(f"Missing Skills: {', '.join(analysis.skill_matrix.missing_skills) if analysis.skill_matrix.missing_skills else 'None'}")
         parts.append(f"Partially Available Skills: {', '.join(analysis.skill_matrix.partially_available_skills) if analysis.skill_matrix.partially_available_skills else 'None'}")
         parts.append(f"Recommended Improvements: {', '.join(analysis.assessment.recommended_improvements)}")
 
+    # 2. RAG Vector Search Knowledge Base Context Retrieval
+    if user_message:
+        try:
+            kb_context = search_relevant_context(user_message, k=3)
+            if kb_context:
+                parts.append(f"\nRetrieved Domain Knowledge Base Context:\n{kb_context}")
+        except Exception as exc:
+            logger.warning(f"RAG vector search skipped/failed: {exc}")
+
+    # 3. Conversation History
     if session_history:
         parts.append("\nRecent Conversation History:")
         for turn in session_history[-4:]:  # Include last 4 messages
@@ -186,4 +207,3 @@ async def stream_chat_chain(
     # Fallback non-streaming text yield
     res = invoke_chat_chain(user_message, context_str, "temp_sess")
     yield res.response
-

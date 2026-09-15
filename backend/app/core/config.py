@@ -60,6 +60,8 @@ class Settings(BaseSettings):
         default=str(BASE_DIR / "data" / "vector_store"),
         description="Local ChromaDB storage directory",
     )
+    PINECONE_API_KEY: str = Field(default="", description="Pinecone cloud serverless API key")
+    PINECONE_INDEX_NAME: str = Field(default="career-compass-index", description="Pinecone index name")
 
     # Document Upload Validation Limits
     MAX_UPLOAD_SIZE_MB: int = 10

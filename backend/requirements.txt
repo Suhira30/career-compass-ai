@@ -29,7 +29,7 @@ python-docx>=1.1.0
 
 # Database & ORM
 sqlalchemy>=2.0.28
-alembic>=1.13.1
+alembic>=1.13.1  # migration tool for SQLAlchemy
 psycopg2-binary>=2.9.9
 
 # Resilience, Security & Utilities
