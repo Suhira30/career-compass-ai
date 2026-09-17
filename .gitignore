@@ -34,6 +34,7 @@ frontend/build/
 *.sqlite3
 backend/data/vector_store/*
 !backend/data/vector_store/.gitkeep
+backend/data/eval_temp/*
 
 # IDEs & System Files
 .vscode/
