@@ -403,6 +403,7 @@ graph TD
 | **LLM Inference Engine**    | **Groq Cloud LPU** (`llama-3.3-70b`) | Ultra-fast token inference ($> 500\text{ tokens/sec}$), ultra-low latency for parsing and streaming. |
 | **Relational SQL Database** | **Supabase PostgreSQL**              | Cloud-native managed Postgres with 500MB free storage, connection pooling, and web dashboard.        |
 | **Vector AI Database**      | **Pinecone Cloud Serverless**        | 2GB free serverless vector storage (`career-compass-index`, Cosine metric) for zero-disk RAG.        |
+| **Dense Embedding Model**   | **`BAAI/bge-small-en-v1.5`**         | 384 dims, 512 max tokens capacity, #1 MTEB rank, CPU fast execution, normalized Cosine metric.       |
 | **Validation Layer**        | Pydantic v2                          | High-speed data validation and seamless LLM structured output enforcement.                           |
 
 ---
@@ -444,6 +445,17 @@ graph TD
 - **Context**: AI execution pipelines (Skill Gap Assessment, Roadmap Generation) require modular, reusable prompt-model composition with multi-provider failover.
 - **Decision**: Adopt explicit LangChain Expression Language (LCEL) Runnable Chains (`ChatPromptTemplate | structured_llm`) across `skill_matcher.py` and `prioritizer.py`.
 - **Consequences**: Ensures clean template variable injection, seamless multi-provider failover (Groq → Gemini → OpenAI), and async execution support (`ainvoke`).
+
+### ADR-07: Selection of BAAI/bge-small-en-v1.5 for Dense Vector Embedding
+
+- **Context**: RAG vectorization requires an open-source, CPU-efficient embedding model capable of processing 256–512 token chunks without truncation or edge self-attention degradation.
+- **Decision**: Adopt `BAAI/bge-small-en-v1.5` (384 dimensions, 512 max token capacity) via `langchain_huggingface` as the unified system embedding model.
+- **Justification**:
+  1. **512 Token Capacity**: Double the 256-token limit of older models like `all-MiniLM-L6-v2`, allowing Medium and Large document chunks to be vectorized without tail truncation.
+  2. **Optimal 384-Dim Vector Compactness**: Maintains fast CPU search latency ($< 20\text{ms}$) and minimal Pinecone Cloud memory usage.
+  3. **#1 Benchmark Accuracy**: Ranked top of its size class on the HuggingFace MTEB Leaderboard with normalized Cosine Similarity optimization.
+  4. **Zero API Cost**: Executes locally in Python without per-query embedding API charges.
+- **Consequences**: Ensures complete consistency across offline evaluation benchmarks (`EXP-RAG-01`) and live candidate chat sessions.
 
 ---
 
