@@ -23,15 +23,19 @@ _vector_store = None
 def get_embedding_model():
     """
     Returns or lazily initializes the HuggingFace embeddings model.
-    Model: sentence-transformers/all-MiniLM-L6-v2 (384 dims, fast & lightweight)
+    Default Model: BAAI/bge-small-en-v1.5 (384 dims, 512 max tokens)
     """
     global _embeddings
     if _embeddings is None:
         try:
-            from langchain_huggingface import HuggingFaceEmbeddings
-            logger.info("Initializing HuggingFaceEmbeddings ('sentence-transformers/all-MiniLM-L6-v2')...")
+            try:
+                from langchain_huggingface import HuggingFaceEmbeddings
+            except ImportError:
+                from langchain_community.embeddings import HuggingFaceEmbeddings
+            model_name = getattr(settings, "EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
+            logger.info(f"Initializing HuggingFaceEmbeddings ('{model_name}')...")
             _embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_name=model_name,
                 model_kwargs={"device": "cpu"},
                 encode_kwargs={"normalize_embeddings": True},
             )
