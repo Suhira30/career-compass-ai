@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     )
     PINECONE_API_KEY: str = Field(default="", description="Pinecone cloud serverless API key")
     PINECONE_INDEX_NAME: str = Field(default="career-compass-index", description="Pinecone index name")
+    EMBEDDING_MODEL_NAME: str = Field(
+        default="BAAI/bge-small-en-v1.5",
+        description="HuggingFace dense embedding model (384 dims, 512 max tokens capacity)",
+    )
 
     # Document Upload Validation Limits
     MAX_UPLOAD_SIZE_MB: int = 10
