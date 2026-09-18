@@ -123,15 +123,29 @@ def _try_groq_lcel(summary_text: str) -> QualitativeAssessment:
     if not settings.GROQ_API_KEY:
         raise ValueError("GROQ_API_KEY is missing")
     from langchain_groq import ChatGroq
-    llm = ChatGroq(
-        api_key=settings.GROQ_API_KEY,
-        model_name=settings.GROQ_MODEL,
-        temperature=0.1,
-    )
-    structured_llm = llm.with_structured_output(QualitativeAssessment)
-    # Explicit LCEL Runnable Chain Composition (prompt | model)
-    lcel_chain = _get_prompt_template() | structured_llm
-    return lcel_chain.invoke({"gap_summary": summary_text})
+
+    candidate_models = ["gemma2-9b-it", "mixtral-8x7b-32768", "llama-3.3-70b-versatile"]
+    preferred = settings.GROQ_MODEL
+    if preferred and preferred not in ("llama-3.1-8b-instant", "llama3-70b-8192", "llama3-8b-8192"):
+        if preferred in candidate_models:
+            candidate_models.remove(preferred)
+        candidate_models.insert(0, preferred)
+
+    last_err: Exception | None = None
+    for m in candidate_models:
+        try:
+            llm = ChatGroq(
+                api_key=settings.GROQ_API_KEY,
+                model_name=m,
+                temperature=0.1,
+            )
+            structured_llm = llm.with_structured_output(QualitativeAssessment)
+            lcel_chain = _get_prompt_template() | structured_llm
+            return lcel_chain.invoke({"gap_summary": summary_text})
+        except Exception as exc:
+            last_err = exc
+            continue
+    raise last_err or RuntimeError("All Groq candidates failed in skill matcher.")
 
 
 def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
@@ -148,15 +162,30 @@ def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
         # Explicit LCEL Runnable Chain Composition
         lcel_chain = _get_prompt_template() | structured_llm
         return lcel_chain.invoke({"gap_summary": summary_text})
-    except ImportError:
-        import google.generativeai as genai
-        import json
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel(settings.GEMINI_MODEL)
-        prompt_str = f"{ASSESSMENT_SYSTEM_PROMPT}\n\n{summary_text}\n\nReturn JSON matching schema: {QualitativeAssessment.model_json_schema()}"
-        response = model.generate_content(prompt_str)
-        cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```").strip()
-        return QualitativeAssessment.model_validate(json.loads(cleaned_json))
+    except Exception as lc_exc:
+        logger.info(f"LangChain Gemini not available ({lc_exc}). Using native google.generativeai SDK...")
+
+    import google.generativeai as genai
+    import json
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+
+    models_to_try = [settings.GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    models_to_try = list(dict.fromkeys([m for m in models_to_try if m]))
+
+    prompt_str = f"{ASSESSMENT_SYSTEM_PROMPT}\n\n{summary_text}\n\nReturn valid JSON matching schema: {json.dumps(QualitativeAssessment.model_json_schema())}"
+    last_err: Exception | None = None
+    for gm in models_to_try:
+        try:
+            model = genai.GenerativeModel(gm, generation_config={"response_mime_type": "application/json", "temperature": 0.1})
+            response = model.generate_content(prompt_str)
+            raw = response.text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            return QualitativeAssessment.model_validate(json.loads(raw))
+        except Exception as g_err:
+            last_err = g_err
+            continue
+    raise last_err or RuntimeError("All Gemini candidates failed in skill matcher.")
 
 
 def _try_openai_lcel(summary_text: str) -> QualitativeAssessment:
@@ -203,21 +232,18 @@ Skill Matrix Analysis:
 Overall Readiness: {category} ({score}%)
 """
 
-    # Multi-provider LCEL Runnable Chain Fallback (Groq -> Gemini -> OpenAI)
-    try:
-        return _try_groq_lcel(summary_text)
-    except Exception as exc:
-        logger.warning(f"Groq LCEL chain assessment failed: {exc}")
-
-    try:
-        return _try_gemini_lcel(summary_text)
-    except Exception as exc:
-        logger.warning(f"Gemini LCEL chain assessment failed: {exc}")
-
-    try:
-        return _try_openai_lcel(summary_text)
-    except Exception as exc:
-        logger.warning(f"OpenAI LCEL chain assessment failed: {exc}")
+    # Multi-provider LCEL Runnable Chain Fallback based on configured LLM_PROVIDER
+    providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
+    for p in providers:
+        try:
+            if p == "gemini":
+                return _try_gemini_lcel(summary_text)
+            elif p == "groq":
+                return _try_groq_lcel(summary_text)
+            elif p == "openai":
+                return _try_openai_lcel(summary_text)
+        except Exception as exc:
+            logger.warning(f"{p.capitalize()} LCEL chain assessment failed: {exc}")
 
     # Fallback heuristic assessment if LLMs are offline
     return QualitativeAssessment(

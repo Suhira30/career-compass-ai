@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     ]
 
     # AI & LLM Provider Configuration
-    LLM_PROVIDER: str = Field(default="groq", description="Primary LLM Provider: groq, gemini, openai")
+    LLM_PROVIDER: str = Field(default="gemini", description="Primary LLM Provider: gemini, groq, openai")
     GROQ_API_KEY: str = Field(default="", description="API key from https://console.groq.com/keys")
-    GROQ_MODEL: str = Field(default="llama-3.1-8b-instant", description="Default Groq model")
+    GROQ_MODEL: str = Field(default="llama-3.3-70b-versatile", description="Default Groq model")
     
     # Fallback LLM Keys
     # Fallback LLM Configuration

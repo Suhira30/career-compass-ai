@@ -26,24 +26,75 @@ Extraction Guidelines:
 """
 
 
+def _get_active_groq_models() -> list[str]:
+    """Dynamically queries Groq API for active chat models available to the current API key."""
+    discovered = []
+    try:
+        from groq import Groq
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        models_data = client.models.list().data
+        for m in models_data:
+            m_id = getattr(m, "id", None) or (m.get("id") if isinstance(m, dict) else None)
+            if m_id:
+                lower_id = m_id.lower()
+                if not any(x in lower_id for x in ["whisper", "audio", "guard", "vision", "safeguard", "embed"]):
+                    discovered.append(m_id)
+        if discovered:
+            logger.info(f"Dynamically discovered {len(discovered)} active Groq models: {discovered}")
+    except Exception as e:
+        logger.warning(f"Could not dynamically list Groq models: {e}")
+
+    priorities = [
+        "gemma2-9b-it",
+        "mixtral-8x7b-32768",
+        "llama-3.3-70b-versatile",
+        "llama-3.3-70b-specdec",
+        "llama-3.2-3b-preview",
+        "llama-3.2-1b-preview",
+    ]
+    if discovered:
+        return [m for m in priorities if m in discovered] + [m for m in discovered if m not in priorities]
+    return priorities
+
+
 def _try_groq(messages) -> ExtractedJobData:
     if not settings.GROQ_API_KEY:
         raise ValueError("GROQ_API_KEY is not configured.")
     
     from langchain_groq import ChatGroq
-    llm = ChatGroq(
-        api_key=settings.GROQ_API_KEY,
-        model_name=settings.GROQ_MODEL,
-        temperature=0.1,
-    )
-    structured_llm = llm.with_structured_output(ExtractedJobData)
-    return structured_llm.invoke(messages)
+
+    candidate_models = _get_active_groq_models()
+    preferred = settings.GROQ_MODEL
+    if preferred and preferred not in ("llama-3.1-8b-instant", "llama-3-8b-instant", "llama3-70b-8192", "llama3-8b-8192"):
+        if preferred in candidate_models:
+            candidate_models.remove(preferred)
+        candidate_models.insert(0, preferred)
+
+    last_error: Exception | None = None
+    for model_name in candidate_models:
+        try:
+            llm = ChatGroq(
+                api_key=settings.GROQ_API_KEY,
+                model_name=model_name,
+                temperature=0.1,
+            )
+            structured_llm = llm.with_structured_output(ExtractedJobData)
+            result = structured_llm.invoke(messages)
+            logger.info(f"Job extraction succeeded using Groq model: '{model_name}'")
+            return result
+        except Exception as exc:
+            last_error = exc
+            logger.warning(f"Groq candidate '{model_name}' unavailable: {exc}. Retrying with next model...")
+            continue
+
+    raise last_error or RuntimeError("All Groq candidate models failed.")
 
 
 def _try_gemini(messages) -> ExtractedJobData:
     if not settings.GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not configured.")
     
+    # 1. Attempt LangChain ChatGoogleGenerativeAI
     try:
         from langchain_google_genai import ChatGoogleGenerativeAI
         llm = ChatGoogleGenerativeAI(
@@ -53,16 +104,52 @@ def _try_gemini(messages) -> ExtractedJobData:
         )
         structured_llm = llm.with_structured_output(ExtractedJobData)
         return structured_llm.invoke(messages)
-    except ImportError:
-        import google.generativeai as genai
-        import json
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel(settings.GEMINI_MODEL)
-        prompt_str = f"{JOB_EXTRACTION_SYSTEM_PROMPT}\n\n{messages[-1][1]}\n\nReturn JSON matching schema: {ExtractedJobData.model_json_schema()}"
-        response = model.generate_content(prompt_str)
-        cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```").strip()
-        data_dict = json.loads(cleaned_json)
-        return ExtractedJobData.model_validate(data_dict)
+    except Exception as lc_exc:
+        logger.info(f"LangChain Gemini structured output not available ({lc_exc}). Using native google.generativeai SDK...")
+
+    # 2. Native google.generativeai SDK fallback (supports new AQ... keys and all Gemini models)
+    import google.generativeai as genai
+    import json
+
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    
+    gemini_models_to_try = [
+        settings.GEMINI_MODEL,
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+        "gemini-flash-latest",
+    ]
+    gemini_models_to_try = list(dict.fromkeys([m for m in gemini_models_to_try if m]))
+
+    prompt_str = (
+        f"{JOB_EXTRACTION_SYSTEM_PROMPT}\n\n"
+        f"JOB DESCRIPTION TEXT:\n{messages[-1][1]}\n\n"
+        f"Return valid JSON strictly matching this schema:\n"
+        f"{json.dumps(ExtractedJobData.model_json_schema())}"
+    )
+
+    last_gemini_err: Exception | None = None
+    for g_model_name in gemini_models_to_try:
+        try:
+            model = genai.GenerativeModel(
+                model_name=g_model_name,
+                generation_config={"response_mime_type": "application/json", "temperature": 0.1},
+            )
+            response = model.generate_content(prompt_str)
+            raw_text = response.text.strip()
+            if raw_text.startswith("```"):
+                raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            data_dict = json.loads(raw_text)
+            validated = ExtractedJobData.model_validate(data_dict)
+            logger.info(f"Job extraction succeeded using Gemini model: '{g_model_name}'")
+            return validated
+        except Exception as g_exc:
+            last_gemini_err = g_exc
+            logger.warning(f"Gemini candidate '{g_model_name}' failed: {g_exc}. Retrying next Gemini candidate...")
+            continue
+
+    raise last_gemini_err or RuntimeError("All Gemini model candidates failed.")
 
 
 def _try_openai(messages) -> ExtractedJobData:
@@ -93,32 +180,21 @@ def extract_job_info(raw_job_description: str) -> ExtractedJobData:
     
     errors = []
 
-    # 1. Attempt Primary Provider: Groq
-    try:
-        logger.info("Attempting job extraction with Primary LLM Provider: Groq")
-        return _try_groq(messages)
-    except Exception as exc:
-        err_msg = f"Primary LLM Groq failed: {str(exc)}"
-        logger.warning(err_msg)
-        errors.append(err_msg)
+    providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
 
-    # 2. Attempt Fallback Provider 1: Gemini
-    try:
-        logger.info("Attempting job extraction with Fallback LLM Provider 1: Gemini")
-        return _try_gemini(messages)
-    except Exception as exc:
-        err_msg = f"Fallback LLM Gemini failed: {str(exc)}"
-        logger.warning(err_msg)
-        errors.append(err_msg)
-
-    # 3. Attempt Fallback Provider 2: OpenAI
-    try:
-        logger.info("Attempting job extraction with Fallback LLM Provider 2: OpenAI")
-        return _try_openai(messages)
-    except Exception as exc:
-        err_msg = f"Fallback LLM OpenAI failed: {str(exc)}"
-        logger.warning(err_msg)
-        errors.append(err_msg)
+    for provider in providers:
+        try:
+            logger.info(f"Attempting job extraction with Provider: {provider.upper()}")
+            if provider == "gemini":
+                return _try_gemini(messages)
+            elif provider == "groq":
+                return _try_groq(messages)
+            elif provider == "openai":
+                return _try_openai(messages)
+        except Exception as exc:
+            err_msg = f"{provider.capitalize()} failed: {str(exc) or repr(exc)}"
+            logger.warning(err_msg)
+            errors.append(err_msg)
 
     # All providers failed
     full_error_details = " | ".join(errors)
