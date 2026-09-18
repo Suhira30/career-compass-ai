@@ -53,9 +53,9 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 
 ### Task 2.1: User Profile Management Module (FR-01)
 
-- [ ] **Task 2.1.1**: Build `UserProfileSchema` Pydantic model enforcing required fields (Name, Education, Current Role, Skills, Target Role).
-- [ ] **Task 2.1.2**: Implement Profile CRUD service in `backend/app/services/profile_service.py`.
-- [ ] **Task 2.1.3**: Expose `/api/v1/profile` endpoints (`GET`, `POST`, `PUT`).
+- [x] **Task 2.1.1**: Build `UserProfileSchema` Pydantic model enforcing required fields (Name, Education, Current Role, Skills, Target Role).
+- [x] **Task 2.1.2**: Implement Profile CRUD service in `backend/app/services/profile_service.py`.
+- [x] **Task 2.1.3**: Expose `/api/v1/profile` endpoints (`GET`, `POST`, `PUT`, `DELETE`).
 
 ### Task 2.2: Resume Upload & Extraction Engine (FR-02, FR-03)
 
