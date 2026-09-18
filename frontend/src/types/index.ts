@@ -11,7 +11,7 @@ export interface UserProfileInput {
 }
 
 export interface UserProfileDetail extends UserProfileInput {
-  profile_id: str;
+  profile_id: string;
   created_at: string;
   status: string;
 }
