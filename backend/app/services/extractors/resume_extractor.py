@@ -27,16 +27,8 @@ Extraction Guidelines:
 """
 
 
-def extract_resume_info(resume_text: str) -> ExtractedResumeData:
-    """
-    Extracts structured entities from resume text using Groq LLM (Llama-3.3-70b-versatile).
-    """
 def _try_groq(messages) -> ExtractedResumeData:
     if not settings.GROQ_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Groq API Key is missing. Please set GROQ_API_KEY in backend environment.",
-        )
         raise ValueError("GROQ_API_KEY is not configured.")
     
     from langchain_groq import ChatGroq
@@ -74,13 +66,7 @@ def _try_gemini(messages) -> ExtractedResumeData:
         data_dict = json.loads(cleaned_json)
         return ExtractedResumeData.model_validate(data_dict)
 
-        messages = [
-            ("system", RESUME_EXTRACTION_SYSTEM_PROMPT),
-            ("human", f"Resume Text:\n\n{resume_text}"),
-        ]
 
-        extracted_data: ExtractedResumeData = structured_llm.invoke(messages)
-        return extracted_data
 def _try_openai(messages) -> ExtractedResumeData:
     if not settings.OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY is not configured.")
@@ -114,10 +100,6 @@ def extract_resume_info(resume_text: str) -> ExtractedResumeData:
         logger.info("Attempting resume extraction with Primary LLM Provider: Groq")
         return _try_groq(messages)
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Resume AI extraction failed: {str(exc)}",
-        )
         err_msg = f"Primary LLM Groq failed: {str(exc)}"
         logger.warning(err_msg)
         errors.append(err_msg)

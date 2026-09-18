@@ -23,6 +23,21 @@ class UserProfileCreate(BaseModel):
     career_interests: List[str] = Field(default_factory=list, description="Career topics of interest", example=["Artificial Intelligence", "Cloud Architecture"])
 
 
+class UserProfileUpdate(BaseModel):
+    """
+    Schema for updating an existing user profile (all fields optional).
+    """
+    full_name: Optional[str] = Field(None, description="User's full name", example="Jane Doe")
+    education_degree: Optional[str] = Field(None, description="Degree or qualification", example="B.S. in Computer Science")
+    institution: Optional[str] = Field(None, description="School or university name", example="State University")
+    graduation_year: Optional[int] = Field(None, description="Year of graduation", example=2024)
+    current_role: Optional[str] = Field(None, description="Current job title", example="Junior Software Engineer")
+    target_role: Optional[str] = Field(None, description="Target aspirational job title", example="Senior Full-Stack AI Engineer")
+    skills: Optional[List[str]] = Field(None, description="List of technical skills", example=["Python", "React", "FastAPI", "SQL"])
+    soft_skills: Optional[List[str]] = Field(None, description="List of soft skills", example=["Problem Solving", "Teamwork"])
+    career_interests: Optional[List[str]] = Field(None, description="Career topics of interest", example=["Artificial Intelligence", "Cloud Architecture"])
+
+
 class UserProfileResponse(BaseModel):
     """
     Schema for user profile creation confirmation response.
