@@ -48,9 +48,34 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
   };
 
   const handleRunAnalysis = async (targetJobId: string, jobData?: JobExtractResponse) => {
-    if (!profileId) {
-      setAnalysisError('Please upload a resume and click "✓ Save Profile" first before analyzing.');
-      return;
+    let activeProfileId = profileId;
+
+    // If profile is not yet confirmed/saved, auto-create it now using real extracted resume data
+    if (!activeProfileId) {
+      if (extractedResume?.extracted_data) {
+        try {
+          const ext = extractedResume.extracted_data;
+          const payload: UserProfileInput = {
+            full_name: 'Candidate Profile',
+            current_role: ext.work_experience?.[0]?.role || 'Software Engineer',
+            target_role: jobData?.extracted_job?.job_title || 'Software Engineer',
+            skills: ext.technical_skills || [],
+            education_degree: ext.education?.[0]?.degree,
+            institution: ext.education?.[0]?.institution,
+            graduation_year: typeof ext.education?.[0]?.graduation_year === 'number' ? ext.education[0].graduation_year : undefined,
+          };
+          const saved = await apiService.createProfile(payload);
+          activeProfileId = saved.profile_id;
+          setProfileId(activeProfileId);
+        } catch (saveErr) {
+          console.error('Auto profile creation failed:', saveErr);
+          setAnalysisError('Please click "✓ Save Profile" above to verify your profile before analyzing.');
+          return;
+        }
+      } else {
+        setAnalysisError('Please upload a resume first before running gap analysis.');
+        return;
+      }
     }
 
     setJobId(targetJobId);
@@ -59,7 +84,7 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
 
     try {
       // Call real backend API /api/v1/analysis/gap
-      const result = await apiService.performGapAnalysis(profileId, targetJobId);
+      const result = await apiService.performGapAnalysis(activeProfileId, targetJobId);
       setAnalysisData(result);
     } catch (err) {
       console.error('Analysis API failed:', err);

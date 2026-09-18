@@ -25,7 +25,7 @@ export const ExtractedProfileReview: React.FC<ExtractedProfileReviewProps> = ({
   const [newSkillName, setNewSkillName] = useState('');
   const [isAddingSkill, setIsAddingSkill] = useState(false);
 
-  // Synchronize strictly with real extracted data from the backend
+  // Synchronize strictly with real extracted data from the backend and auto-persist profile
   useEffect(() => {
     if (extractedData?.technical_skills && extractedData.technical_skills.length > 0) {
       const mapped: SkillItem[] = extractedData.technical_skills.map((skillName, idx) => ({
@@ -35,7 +35,27 @@ export const ExtractedProfileReview: React.FC<ExtractedProfileReviewProps> = ({
         confirmed: true,
       }));
       setSkills(mapped);
-      setSaveSuccess(false);
+
+      // Auto-save candidate profile to backend so profileId is ready for immediate analysis
+      const payload: UserProfileInput = {
+        full_name: 'Candidate Profile',
+        current_role: extractedData?.work_experience?.[0]?.role || 'Software Engineer',
+        target_role: 'Target Role',
+        skills: mapped.map((s) => s.name),
+        education_degree: extractedData?.education?.[0]?.degree,
+        institution: extractedData?.education?.[0]?.institution,
+        graduation_year: extractedData?.education?.[0]?.graduation_year,
+      };
+
+      apiService
+        .createProfile(payload)
+        .then((res) => {
+          setSaveSuccess(true);
+          onProfileSaved(res.profile_id);
+        })
+        .catch((err) => {
+          console.warn('Auto profile save deferred:', err);
+        });
     } else {
       setSkills([]);
     }
