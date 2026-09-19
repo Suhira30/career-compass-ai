@@ -44,12 +44,33 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = Field(default="", description="API key from https://console.groq.com/keys")
     GROQ_MODEL: str = Field(default="llama-3.3-70b-versatile", description="Default Groq model")
     
-    # Fallback LLM Keys
-    # Fallback LLM Configuration
+    # Fallback LLM Keys & Configuration
     GEMINI_API_KEY: str = Field(default="")
     GEMINI_MODEL: str = Field(default="gemini-1.5-flash", description="Fallback Gemini model")
     OPENAI_API_KEY: str = Field(default="")
     OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="Fallback OpenAI model")
+
+    # Configurable Candidate Model Lists for Resilient Auto-Healing
+    GEMINI_CANDIDATE_MODELS: List[str] = Field(
+        default=[
+            "gemini-1.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-flash-latest",
+        ],
+        description="Priority ordered list of candidate Gemini models",
+    )
+    GROQ_CANDIDATE_MODELS: List[str] = Field(
+        default=[
+            "gemma2-9b-it",
+            "mixtral-8x7b-32768",
+            "llama-3.3-70b-versatile",
+            "llama-3.3-70b-specdec",
+            "llama-3.2-3b-preview",
+            "llama-3.2-1b-preview",
+        ],
+        description="Priority ordered list of candidate Groq models",
+    )
 
     # Database & Vector Store Settings
     DATABASE_URL: str = Field(
