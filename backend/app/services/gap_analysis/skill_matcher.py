@@ -151,19 +151,6 @@ def _try_groq_lcel(summary_text: str) -> QualitativeAssessment:
 def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
     if not settings.GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is missing")
-    try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        llm = ChatGoogleGenerativeAI(
-            google_api_key=settings.GEMINI_API_KEY,
-            model=settings.GEMINI_MODEL,
-            temperature=0.1,
-        )
-        structured_llm = llm.with_structured_output(QualitativeAssessment)
-        # Explicit LCEL Runnable Chain Composition
-        lcel_chain = _get_prompt_template() | structured_llm
-        return lcel_chain.invoke({"gap_summary": summary_text})
-    except Exception as lc_exc:
-        logger.info(f"LangChain Gemini not available ({lc_exc}). Using native google.generativeai SDK...")
 
     import google.generativeai as genai
     import json
