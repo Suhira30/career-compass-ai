@@ -21,9 +21,28 @@ logger = logging.getLogger(__name__)
 RAW_DATA_DIR = Path(settings.BASE_DIR) / "data" / "raw"
 
 
+def _parse_frontmatter(content: str) -> Tuple[Dict[str, str], str]:
+    """
+    Extracts YAML frontmatter metadata if present between leading '---' markers.
+    """
+    metadata: Dict[str, str] = {}
+    body = content
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            raw_yaml = parts[1].strip()
+            body = parts[2].strip()
+            for line in raw_yaml.splitlines():
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    metadata[k.strip()] = v.strip().strip("'\"")
+    return metadata, body
+
+
 def load_raw_markdown_documents() -> List[Document]:
     """
-    Reads all markdown files (.md) from the raw data directory and wraps them into LangChain Document objects.
+    Recursively reads all markdown files (.md) from the raw data directory and subdirectories,
+    extracting YAML frontmatter and folder categories into LangChain Document objects.
     """
     if not RAW_DATA_DIR.exists():
         logger.warning(f"Raw data directory '{RAW_DATA_DIR}' does not exist. Creating directory...")
@@ -31,7 +50,7 @@ def load_raw_markdown_documents() -> List[Document]:
         return []
 
     documents = []
-    md_files = list(RAW_DATA_DIR.glob("*.md"))
+    md_files = sorted(list(RAW_DATA_DIR.rglob("*.md")))
     
     if not md_files:
         logger.warning(f"No .md files found in '{RAW_DATA_DIR}'.")
@@ -42,15 +61,26 @@ def load_raw_markdown_documents() -> List[Document]:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if content:
+                    fm_meta, body = _parse_frontmatter(content)
+                    folder_category = file_path.parent.name if file_path.parent != RAW_DATA_DIR else "general"
+                    
+                    doc_metadata = {
+                        "source": file_path.name,
+                        "path": str(file_path),
+                        "folder": folder_category,
+                        "category": fm_meta.get("category", folder_category),
+                        **fm_meta,
+                    }
+                    
                     doc = Document(
-                        page_content=content,
-                        metadata={
-                            "source": file_path.name,
-                            "path": str(file_path),
-                        },
+                        page_content=body,
+                        metadata=doc_metadata,
                     )
                     documents.append(doc)
-                    logger.info(f"Loaded raw document: {file_path.name} ({len(content)} characters)")
+                    logger.info(
+                        f"Loaded document: {file_path.relative_to(RAW_DATA_DIR)} "
+                        f"[{doc_metadata.get('category')}] ({len(body)} characters)"
+                    )
         except Exception as exc:
             logger.error(f"Failed to read file '{file_path}': {exc}")
 
