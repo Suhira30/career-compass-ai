@@ -3,7 +3,7 @@ import { GapAnalysisResponse } from '../../types';
 
 interface SkillGapDashboardProps {
   analysisData?: GapAnalysisResponse | null;
-  onNavigateRoadmap?: (gaps: string[]) => void;
+  onNavigateRoadmap?: (gaps: string[], analysisId?: string) => void;
   onNavigateCopilot?: () => void;
   onNavigateGalaxy?: () => void;
 }
@@ -251,7 +251,7 @@ export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => onNavigateRoadmap?.(criticalGaps)}
+              onClick={() => onNavigateRoadmap?.(criticalGaps, analysisData?.analysis_id)}
               className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-600 hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
             >
               <span>Generate Roadmap</span>

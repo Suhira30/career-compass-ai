@@ -1,11 +1,11 @@
 import axios, { AxiosError } from 'axios';
 import {
-  UserProfileInput,
-  UserProfileDetail,
-  ResumeUploadResponse,
-  JobExtractResponse,
-  GapAnalysisResponse,
-  RoadmapGenerateResponse,
+    GapAnalysisResponse,
+    JobExtractResponse,
+    ResumeUploadResponse,
+    RoadmapGenerateResponse,
+    UserProfileDetail,
+    UserProfileInput,
 } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
@@ -84,13 +84,61 @@ export const apiService = {
   async generateRoadmap(
     analysisId: string,
     availableHoursPerWeek: number = 5,
-    preferredDurationWeeks: number = 4
+    preferredDurationWeeks: number = 4,
+    gapAnalysisData?: any
   ): Promise<RoadmapGenerateResponse> {
     const response = await apiClient.post<RoadmapGenerateResponse>('/roadmap/generate', {
       analysis_id: analysisId,
       available_hours_per_week: availableHoursPerWeek,
       preferred_duration_weeks: preferredDurationWeeks,
+      gap_analysis_data: gapAnalysisData || null,
     });
+    return response.data;
+  },
+
+  // 6. Multi-Roadmap Cloud Persistence (Supabase & Two-Tier Sync)
+  async getUserRoadmaps(userId: string): Promise<any[]> {
+    const response = await apiClient.get(`/roadmap/user/${userId}`);
+    return response.data;
+  },
+
+  async saveRoadmap(roadmap: any, userId?: string): Promise<{ status: string }> {
+    const rd = roadmap.roadmap_data || {};
+    const response = await apiClient.post('/roadmap/save', {
+      roadmap_id: roadmap.id,
+      user_id: userId || null,
+      analysis_id: typeof roadmap.id === 'string' && roadmap.id.startsWith('anl_') ? roadmap.id : null,
+      company_name: roadmap.company_name || 'Target Opportunity',
+      job_title: roadmap.job_title || 'AI Role',
+      ats_score_percentage: Math.round(roadmap.ats_score_percentage || 75),
+      weekly_hours: roadmap.weekly_hours || 5,
+      duration_weeks: roadmap.duration_weeks || 4,
+      prioritization_badges: rd.prioritization_badges || {
+        priority_1_critical: [],
+        priority_2_high: [],
+        priority_3_secondary: [],
+      },
+      weekly_milestones: rd.weekly_milestones || [],
+    });
+    return response.data;
+  },
+
+  async toggleRoadmapTask(
+    roadmapId: string,
+    taskKey: string,
+    isCompleted: boolean,
+    userId?: string
+  ): Promise<{ status: string }> {
+    const response = await apiClient.post(`/roadmap/${roadmapId}/task`, {
+      task_key: taskKey,
+      is_completed: isCompleted,
+      user_id: userId || null,
+    });
+    return response.data;
+  },
+
+  async deleteRoadmap(roadmapId: string): Promise<{ status: string }> {
+    const response = await apiClient.delete(`/roadmap/${roadmapId}`);
     return response.data;
   },
 };

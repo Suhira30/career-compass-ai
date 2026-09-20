@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { apiService } from '../../services/api';
 import { ExtractedResumeData, UserProfileInput } from '../../types';
 
@@ -84,20 +84,26 @@ export const ExtractedProfileReview: React.FC<ExtractedProfileReviewProps> = ({
     setIsAddingSkill(false);
   };
 
+  const handleRemoveSkill = (id: string) => {
+    setSkills((prev) => prev.filter((item) => item.id !== id));
+  };
+
   const handleSaveProfile = async () => {
     if (skills.length === 0) return;
 
     setIsSaving(true);
     setSaveSuccess(false);
 
+    const activeSkills = skills.filter((s) => s.confirmed).map((s) => s.name);
+
     const payload: UserProfileInput = {
       full_name: 'Candidate Profile',
       current_role: extractedData?.work_experience?.[0]?.role || 'Software Engineer',
       target_role: 'Target Role',
-      skills: skills.map((s) => s.name),
+      skills: activeSkills.length > 0 ? activeSkills : skills.map((s) => s.name),
       education_degree: extractedData?.education?.[0]?.degree,
       institution: extractedData?.education?.[0]?.institution,
-      graduation_year: extractedData?.education?.[0]?.year,
+      graduation_year: extractedData?.education?.[0]?.graduation_year,
     };
 
     try {
@@ -213,22 +219,9 @@ export const ExtractedProfileReview: React.FC<ExtractedProfileReviewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (Col 8) */}
         <div className="lg:col-span-8 space-y-4">
-          {/* TAB 1: SKILLS */}
+          {/* TAB 1: SKILLS — COMPACT PILL / BADGE CLOUD VIEW */}
           {activeTab === 'skills' && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-white/70">
-                  Candidate Competencies
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingSkill(true)}
-                  className="text-xs font-semibold text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <span>+</span> Add Custom Skill
-                </button>
-              </div>
-
               {/* Add Custom Skill Form */}
               {isAddingSkill && (
                 <form
@@ -237,7 +230,7 @@ export const ExtractedProfileReview: React.FC<ExtractedProfileReviewProps> = ({
                 >
                   <input
                     type="text"
-                    placeholder="Enter skill name..."
+                    placeholder="Enter skill name (e.g. Kubernetes, PyTorch)..."
                     value={newSkillName}
                     onChange={(e) => setNewSkillName(e.target.value)}
                     autoFocus
@@ -259,41 +252,102 @@ export const ExtractedProfileReview: React.FC<ExtractedProfileReviewProps> = ({
                 </form>
               )}
 
-              {/* Skills List or Empty State */}
               {skills.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {skills.map((skill) => (
-                    <div
-                      key={skill.id}
-                      className={`p-3.5 rounded-2xl glass-pill-dark flex items-center justify-between border-l-4 transition-all ${
-                        skill.confirmed ? 'border-l-cyan-400' : 'border-l-amber-400'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-xs font-bold text-white block">{skill.name}</span>
-                        <span className="text-[11px] text-white/50">{skill.category}</span>
+                <div className="glass-frame rounded-2xl p-5 sm:p-6 space-y-4 border border-white/15">
+                  {/* Clean Header with Confidence & Badges */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 text-xs font-bold shadow-sm">
+                        ✓
                       </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                          <span>Confirmed Resume Matches</span>
+                          <span className="text-[11px] font-normal text-white/50 hidden sm:inline">
+                            (Found in Active PDF)
+                          </span>
+                        </h4>
+                      </div>
+                    </div>
 
+                    <div className="flex items-center gap-2">
+                      <span className="glass-pill px-2.5 py-1 rounded-full text-[10px] font-mono font-bold text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        100% CONFIDENCE
+                      </span>
+                      <span className="glass-pill px-2.5 py-1 rounded-full text-[10px] font-mono text-cyan-300 border border-white/10">
+                        {skills.filter((s) => s.confirmed).length} Verified
+                      </span>
                       <button
                         type="button"
-                        onClick={() => toggleConfirm(skill.id)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
-                          skill.confirmed
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                            : 'bg-amber-500/25 text-amber-300 border border-amber-500/40 hover:bg-amber-500/40'
-                        }`}
+                        onClick={() => setIsAddingSkill(true)}
+                        className="glass-pill px-2.5 py-1 rounded-full text-[10px] font-semibold text-cyan-300 hover:text-white hover:bg-white/20 transition-all flex items-center gap-1 cursor-pointer"
                       >
-                        {skill.confirmed ? 'Confirmed' : 'Confirm Skill'}
+                        <span>+</span> Add Skill
                       </button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Compact Wrap-around Skill Badges Cloud */}
+                  <div className="flex flex-wrap gap-2.5 pt-1">
+                    {skills.map((skill) => (
+                      <div
+                        key={skill.id}
+                        onClick={() => toggleConfirm(skill.id)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-medium border transition-all duration-200 cursor-pointer select-none flex items-center gap-2 group shadow-sm ${
+                          skill.confirmed
+                            ? 'glass-pill bg-white/[0.12] text-white border-white/25 hover:border-cyan-400/60 hover:bg-white/20 hover:scale-[1.02]'
+                            : 'glass-pill-dark bg-white/[0.04] text-white/40 border-dashed border-white/15 line-through hover:text-white/60'
+                        }`}
+                      >
+                        <span
+                          className={`text-xs font-bold transition-colors ${
+                            skill.confirmed ? 'text-emerald-400' : 'text-white/30'
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        <span className="tracking-tight">{skill.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveSkill(skill.id);
+                          }}
+                          title="Remove skill"
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-white/30 hover:text-rose-400 hover:bg-rose-500/20 text-xs transition-all ml-0.5 opacity-0 group-hover:opacity-100 cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Inline Add Skill Pill */}
+                    {!isAddingSkill && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingSkill(true)}
+                        className="glass-pill-dark px-3.5 py-2 rounded-xl text-xs font-semibold text-cyan-400 hover:text-cyan-300 border border-dashed border-cyan-400/40 hover:border-cyan-400 flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <span>+</span> Add Custom
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Helper Hint */}
+                  <div className="pt-2 flex items-center justify-between text-[11px] text-white/40 border-t border-white/5">
+                    <span>Click any pill to toggle confirmation • Hover to remove</span>
+                    <span className="text-cyan-400/70 font-mono">
+                      {skills.length} total competencies extracted
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="p-8 rounded-2xl glass-pill-dark border border-white/10 text-center space-y-2">
                   <span className="text-2xl block">📄</span>
                   <h4 className="text-sm font-semibold text-white">No skills parsed yet</h4>
                   <p className="text-xs text-white/50">
-                    Upload your resume above or click "+ Add Custom Skill" to enter your skills.
+                    Upload your resume above or click "+ Add Skill" to enter your competencies.
                   </p>
                 </div>
               )}

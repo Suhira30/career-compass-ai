@@ -74,7 +74,7 @@ def _try_groq_lcel(summary_text: str, weekly_hours: int, duration_weeks: int) ->
         raise ValueError("GROQ_API_KEY is missing")
     from langchain_groq import ChatGroq
 
-    candidate_models = ["gemma2-9b-it", "mixtral-8x7b-32768", "llama-3.3-70b-versatile"]
+    candidate_models = list(getattr(settings, "GROQ_CANDIDATE_MODELS", ["llama-3.3-70b-versatile", "gemma2-9b-it", "mixtral-8x7b-32768"]))
     preferred = settings.GROQ_MODEL
     if preferred and preferred not in ("llama-3.1-8b-instant", "llama3-70b-8192", "llama3-8b-8192"):
         if preferred in candidate_models:
@@ -91,11 +91,14 @@ def _try_groq_lcel(summary_text: str, weekly_hours: int, duration_weeks: int) ->
             )
             structured_llm = llm.with_structured_output(RoadmapGenerateResponse)
             lcel_chain = _get_roadmap_prompt_template() | structured_llm
-            return lcel_chain.invoke({
+            result = lcel_chain.invoke({
                 "gap_summary": summary_text,
                 "weekly_hours": weekly_hours,
                 "duration_weeks": duration_weeks,
             })
+            if not getattr(result, "roadmap_id", None):
+                result.roadmap_id = "rdm_temp"
+            return result
         except Exception as exc:
             last_err = exc
             continue
@@ -110,8 +113,10 @@ def _try_gemini_lcel(summary_text: str, weekly_hours: int, duration_weeks: int) 
     import json
     genai.configure(api_key=settings.GEMINI_API_KEY)
 
-    models_to_try = [settings.GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
-    models_to_try = list(dict.fromkeys([m for m in models_to_try if m]))
+    candidates = [settings.GEMINI_MODEL] + [
+        m for m in getattr(settings, "GEMINI_CANDIDATE_MODELS", []) if m != settings.GEMINI_MODEL
+    ]
+    models_to_try = list(dict.fromkeys([m for m in candidates if m]))
 
     prompt_str = f"{ROADMAP_SYSTEM_PROMPT.format(weekly_hours=weekly_hours, duration_weeks=duration_weeks)}\n\n{summary_text}\n\nReturn valid JSON matching schema: {json.dumps(RoadmapGenerateResponse.model_json_schema())}"
     last_err: Exception | None = None

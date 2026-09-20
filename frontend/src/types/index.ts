@@ -118,5 +118,15 @@ export interface RoadmapGenerateResponse {
   weekly_milestones: WeeklyMilestone[];
 }
 
-type str = string;
-
+export interface TrackedRoadmapItem {
+  id: string;
+  company_name: string;
+  job_title: string;
+  ats_score_percentage: number;
+  readiness_category?: string;
+  weekly_hours: number;
+  duration_weeks: number;
+  created_at: string;
+  roadmap_data: RoadmapGenerateResponse;
+  completed_tasks: Record<string, boolean>;
+}

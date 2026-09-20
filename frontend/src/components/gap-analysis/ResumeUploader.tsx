@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { apiService, parseApiError } from '../../services/api';
 import { ResumeUploadResponse } from '../../types';
 
@@ -17,6 +17,19 @@ export const ResumeUploader: React.FC<ResumeUploaderProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Interactive subtle cursor spotlight tracking on the card
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    card.style.setProperty('--card-mouse-x', `${x}px`);
+    card.style.setProperty('--card-mouse-y', `${y}px`);
+  }, []);
 
   const handleFileUpload = async (file: File) => {
     // Basic format validation
@@ -71,8 +84,23 @@ export const ResumeUploader: React.FC<ResumeUploaderProps> = ({
   };
 
   return (
-    <div className="glass-frame rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-5">
-      <div className="space-y-4">
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative glass-frame rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-5 h-full overflow-hidden transition-all duration-300 group"
+    >
+      {/* Interactive Subtle Cursor Spotlight */}
+      <div
+        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(circle 300px at var(--card-mouse-x, 50%) var(--card-mouse-y, 50%), rgba(56, 189, 248, 0.12) 0%, transparent 70%)`,
+        }}
+      />
+
+      <div className="space-y-4 relative z-10">
         {/* Card Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2.5">
@@ -212,7 +240,7 @@ export const ResumeUploader: React.FC<ResumeUploaderProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
+      <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white/50 relative z-10">
         <span>Processing Mode: <strong className="text-white">In-Memory (PII Private)</strong></span>
         <span className="text-cyan-300 font-medium">Dual Vector Ready</span>
       </div>

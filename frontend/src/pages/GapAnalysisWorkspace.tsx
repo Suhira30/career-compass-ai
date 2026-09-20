@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ExtractedProfileReview } from '../components/gap-analysis/ExtractedProfileReview';
-import { JobDescriptionInput } from '../components/gap-analysis/JobDescriptionInput';
+import { InteractiveAnalyzeButton } from '../components/gap-analysis/InteractiveAnalyzeButton';
+import { JobDescriptionInput, SAMPLE_AI_JD } from '../components/gap-analysis/JobDescriptionInput';
 import { ResumeUploader } from '../components/gap-analysis/ResumeUploader';
 import { SkillGapDashboard } from '../components/gap-analysis/SkillGapDashboard';
-import { apiService } from '../services/api';
+import { apiService, parseApiError } from '../services/api';
 import {
-    GapAnalysisResponse,
-    JobExtractResponse,
-    ResumeUploadResponse,
+  GapAnalysisResponse,
+  JobExtractResponse,
+  ResumeUploadResponse,
+  UserProfileInput,
 } from '../types';
 
 interface GapAnalysisWorkspaceProps {
   onBackToLanding: () => void;
-  onNavigateRoadmap?: (gaps: string[]) => void;
+  onNavigateRoadmap?: (
+    gaps: string[],
+    analysisId?: string,
+    analysisData?: GapAnalysisResponse | null,
+    jobTitle?: string | null
+  ) => void;
   onNavigateCopilot?: () => void;
   onNavigateGalaxy?: () => void;
 }
@@ -23,12 +30,111 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
   onNavigateCopilot,
   onNavigateGalaxy,
 }) => {
-  const [extractedResume, setExtractedResume] = useState<ResumeUploadResponse | null>(null);
-  const [profileId, setProfileId] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
+  // Restore all state across page navigations and browser refreshes
+  const [extractedResume, setExtractedResume] = useState<ResumeUploadResponse | null>(() => {
+    try {
+      const saved = localStorage.getItem('career_compass_extracted_resume');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  const [profileId, setProfileId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('career_compass_profile_id');
+    } catch {}
+    return null;
+  });
+
+  const [jobTitle, setJobTitle] = useState<string>(() => {
+    try {
+      return localStorage.getItem('career_compass_active_job_title') || '';
+    } catch {}
+    return '';
+  });
+
+  const [rawJd, setRawJd] = useState<string>(() => {
+    try {
+      return localStorage.getItem('career_compass_raw_jd') || '';
+    } catch {}
+    return '';
+  });
+
+  const [currentJobId, setCurrentJobId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('career_compass_job_id');
+    } catch {}
+    return null;
+  });
+
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [analysisData, setAnalysisData] = useState<GapAnalysisResponse | null>(null);
+
+  const [analysisData, setAnalysisData] = useState<GapAnalysisResponse | null>(() => {
+    try {
+      const saved = localStorage.getItem('career_compass_analysis_data');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  // Auto-sync resume to localStorage
+  useEffect(() => {
+    try {
+      if (extractedResume) {
+        localStorage.setItem('career_compass_extracted_resume', JSON.stringify(extractedResume));
+      } else {
+        localStorage.removeItem('career_compass_extracted_resume');
+      }
+    } catch {}
+  }, [extractedResume]);
+
+  // Auto-sync profileId
+  useEffect(() => {
+    try {
+      if (profileId) {
+        localStorage.setItem('career_compass_profile_id', profileId);
+      }
+    } catch {}
+  }, [profileId]);
+
+  // Auto-sync jobTitle
+  useEffect(() => {
+    try {
+      if (jobTitle) {
+        localStorage.setItem('career_compass_active_job_title', jobTitle);
+      }
+    } catch {}
+  }, [jobTitle]);
+
+  // Auto-sync raw JD text
+  useEffect(() => {
+    try {
+      if (rawJd) {
+        localStorage.setItem('career_compass_raw_jd', rawJd);
+      }
+    } catch {}
+  }, [rawJd]);
+
+  // Auto-sync jobId
+  useEffect(() => {
+    try {
+      if (currentJobId) {
+        localStorage.setItem('career_compass_job_id', currentJobId);
+      }
+    } catch {}
+  }, [currentJobId]);
+
+  // Auto-sync analysis results
+  useEffect(() => {
+    try {
+      if (analysisData) {
+        localStorage.setItem('career_compass_analysis_data', JSON.stringify(analysisData));
+      } else {
+        localStorage.removeItem('career_compass_analysis_data');
+      }
+    } catch {}
+  }, [analysisData]);
 
   const handleExtractionSuccess = (data: ResumeUploadResponse) => {
     setExtractedResume(data);
@@ -40,6 +146,12 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
     setProfileId(null);
     setAnalysisData(null);
     setAnalysisError(null);
+    try {
+      localStorage.removeItem('career_compass_extracted_resume');
+      localStorage.removeItem('career_compass_profile_id');
+      localStorage.removeItem('career_compass_analysis_data');
+      localStorage.removeItem('career_compass_active_analysis_id');
+    } catch {}
   };
 
   const handleProfileSaved = (savedProfileId: string) => {
@@ -47,54 +159,80 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
     setAnalysisError(null);
   };
 
-  const handleRunAnalysis = async (targetJobId: string, jobData?: JobExtractResponse) => {
-    let activeProfileId = profileId;
+  const handleLoadSampleJd = () => {
+    setJobTitle('Senior AI & Systems Engineer');
+    setRawJd(SAMPLE_AI_JD);
+    setAnalysisError(null);
+  };
 
-    // If profile is not yet confirmed/saved, auto-create it now using real extracted resume data
-    if (!activeProfileId) {
-      if (extractedResume?.extracted_data) {
-        try {
-          const ext = extractedResume.extracted_data;
-          const payload: UserProfileInput = {
-            full_name: 'Candidate Profile',
-            current_role: ext.work_experience?.[0]?.role || 'Software Engineer',
-            target_role: jobData?.extracted_job?.job_title || 'Software Engineer',
-            skills: ext.technical_skills || [],
-            education_degree: ext.education?.[0]?.degree,
-            institution: ext.education?.[0]?.institution,
-            graduation_year: typeof ext.education?.[0]?.graduation_year === 'number' ? ext.education[0].graduation_year : undefined,
-          };
-          const saved = await apiService.createProfile(payload);
-          activeProfileId = saved.profile_id;
-          setProfileId(activeProfileId);
-        } catch (saveErr) {
-          console.error('Auto profile creation failed:', saveErr);
-          setAnalysisError('Please click "✓ Save Profile" above to verify your profile before analyzing.');
-          return;
-        }
-      } else {
-        setAnalysisError('Please upload a resume first before running gap analysis.');
-        return;
-      }
+  const handleTriggerUnifiedAnalysis = async () => {
+    // Validation checks
+    if (!extractedResume) {
+      setAnalysisError('Please upload your resume (or load the sample resume) on the left.');
+      return;
     }
 
-    setJobId(targetJobId);
+    if (!rawJd.trim() || rawJd.trim().length < 20) {
+      setAnalysisError('Please enter a target job description (at least 20 characters) on the right.');
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisError(null);
 
     try {
-      // Call real backend API /api/v1/analysis/gap
+      // Step 1: Ensure Candidate Profile is persisted in backend
+      let activeProfileId = profileId;
+      if (!activeProfileId) {
+        if (extractedResume?.extracted_data) {
+          try {
+            const ext = extractedResume.extracted_data;
+            const payload: UserProfileInput = {
+              full_name: 'Candidate Profile',
+              current_role: ext.work_experience?.[0]?.role || 'Software Engineer',
+              target_role: jobTitle.trim() || 'Software Engineer',
+              skills: ext.technical_skills || [],
+              education_degree: ext.education?.[0]?.degree,
+              institution: ext.education?.[0]?.institution,
+              graduation_year:
+                typeof ext.education?.[0]?.graduation_year === 'number'
+                  ? ext.education[0].graduation_year
+                  : undefined,
+            };
+            const saved = await apiService.createProfile(payload);
+            activeProfileId = saved.profile_id;
+            setProfileId(activeProfileId);
+          } catch (saveErr) {
+            console.error('Auto profile creation failed:', saveErr);
+            throw new Error('Could not persist candidate profile. Please verify your profile below.');
+          }
+        } else {
+          throw new Error('Resume data not found. Please re-upload your resume.');
+        }
+      }
+
+      // Step 2: Extract structured Job Description
+      let targetJobId = currentJobId;
+      const jobExtractResult: JobExtractResponse = await apiService.extractJobDescription(rawJd);
+      targetJobId = jobExtractResult.job_id;
+      setCurrentJobId(targetJobId);
+
+      // Step 3: Execute Skill Gap & Match Analysis
       const result = await apiService.performGapAnalysis(activeProfileId, targetJobId);
       setAnalysisData(result);
-    } catch (err) {
-      console.error('Analysis API failed:', err);
-      setAnalysisError('Gap analysis failed. Please ensure the backend server is running and try again.');
+
+      // Step 4: Smooth scroll down to results
+      setTimeout(() => {
+        const element = document.getElementById('gap-results-anchor');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } catch (err: unknown) {
+      console.error('Analysis workflow failed:', err);
+      setAnalysisError(parseApiError(err));
     } finally {
       setIsAnalyzing(false);
-      const element = document.getElementById('gap-results-anchor');
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
     }
   };
 
@@ -172,19 +310,40 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
           </div>
         </div>
 
-        {/* ================= ROW 1: TOP DUAL INPUT ENGINES ================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-6">
-            <ResumeUploader
-              onExtractionSuccess={handleExtractionSuccess}
-              extractedFileName={extractedResume?.file_name}
-              onRemoveFile={handleRemoveFile}
-            />
+        {/* ================= DUAL INPUT ENGINES WITH INTERACTIVE SPOTLIGHT ================= */}
+        <div className="space-y-6">
+          {/* Dual Input Cards: Left = Resume Ingestion, Right = Target Job Description */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            {/* Left: CV / Resume Uploader */}
+            <div className="lg:col-span-6 flex flex-col">
+              <ResumeUploader
+                onExtractionSuccess={handleExtractionSuccess}
+                extractedFileName={extractedResume?.file_name}
+                onRemoveFile={handleRemoveFile}
+              />
+            </div>
+
+            {/* Right: Job Description Uploader */}
+            <div className="lg:col-span-6 flex flex-col">
+              <JobDescriptionInput
+                jobTitle={jobTitle}
+                setJobTitle={setJobTitle}
+                rawJd={rawJd}
+                setRawJd={setRawJd}
+                onLoadSample={handleLoadSampleJd}
+                isAnalyzing={isAnalyzing}
+              />
+            </div>
           </div>
 
-          <div className="lg:col-span-6">
-            <JobDescriptionInput onAnalyze={handleRunAnalysis} isAnalyzing={isAnalyzing} />
-          </div>
+          {/* ================= BOTTOM OF BOTH: INTERACTIVE CURSOR-REACTIVE ANALYZE BUTTON ================= */}
+          <InteractiveAnalyzeButton
+            onClick={handleTriggerUnifiedAnalysis}
+            isAnalyzing={isAnalyzing}
+            hasResume={!!extractedResume}
+            hasJobDescription={rawJd.trim().length >= 20}
+            errorMessage={analysisError}
+          />
         </div>
 
         {/* ================= ROW 2: EXTRACTED CANDIDATE PROFILE REVIEW ================= */}
@@ -193,21 +352,19 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
           onProfileSaved={handleProfileSaved}
         />
 
-        {/* Error Notification */}
-        {analysisError && (
-          <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
-            <span className="font-bold text-sm">⚠</span>
-            <span>{analysisError}</span>
-          </div>
-        )}
-
         {/* Anchor for auto scroll */}
         <div id="gap-results-anchor" />
 
         {/* ================= ROW 3 & 4: GAP INTELLIGENCE DASHBOARD ================= */}
         <SkillGapDashboard
           analysisData={analysisData}
-          onNavigateRoadmap={onNavigateRoadmap}
+          onNavigateRoadmap={(gaps, aId) => {
+            const role = jobTitle.trim() || 'Target Opportunity';
+            try {
+              localStorage.setItem('career_compass_active_job_title', role);
+            } catch {}
+            onNavigateRoadmap?.(gaps, aId || analysisData?.analysis_id, analysisData, role);
+          }}
           onNavigateCopilot={onNavigateCopilot}
           onNavigateGalaxy={onNavigateGalaxy}
         />
@@ -221,4 +378,3 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
     </div>
   );
 };
-

@@ -1,50 +1,68 @@
-import React, { useState } from 'react';
-import { apiService, parseApiError } from '../../services/api';
-import { JobExtractResponse } from '../../types';
+import React, { useCallback, useRef, useState } from 'react';
 
-interface JobDescriptionInputProps {
-  onAnalyze: (jobId: string, jobData?: JobExtractResponse) => void;
-  isAnalyzing: boolean;
-}
-
-const SAMPLE_AI_JD = `Role: Senior AI & Systems Engineer (Scale AI / Anthropic)
+export const SAMPLE_AI_JD = `Role: Senior AI & Systems Engineer (Scale AI / Anthropic)
 Seeking engineer with deep expertise in Python, LangGraph stateful orchestration, dense/sparse hybrid search (BM25 + Cohere rerankers), distributed caching with Redis, and automated evaluation harnesses (Ragas). Must demonstrate production experience with latency-constrained LLM inference pipelines, multi-turn agent guardrails, and asynchronous event-driven streaming architecture.`;
 
+interface JobDescriptionInputProps {
+  jobTitle: string;
+  setJobTitle: (val: string) => void;
+  rawJd: string;
+  setRawJd: (val: string) => void;
+  onLoadSample?: () => void;
+  errorMessage?: string | null;
+  isAnalyzing?: boolean;
+}
+
 export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
-  onAnalyze,
-  isAnalyzing,
+  jobTitle,
+  setJobTitle,
+  rawJd,
+  setRawJd,
+  onLoadSample,
+  errorMessage,
+  isAnalyzing = false,
 }) => {
-  const [jobTitle, setJobTitle] = useState('');
-  const [rawJd, setRawJd] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const handleLoadSample = () => {
-    setJobTitle('Senior AI & Systems Engineer');
-    setRawJd(SAMPLE_AI_JD);
-    setErrorMessage(null);
-  };
+  // Subtle interactive cursor spotlight on the card frame
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    card.style.setProperty('--card-mouse-x', `${x}px`);
+    card.style.setProperty('--card-mouse-y', `${y}px`);
+  }, []);
 
-  const handleTriggerAnalysis = async () => {
-    if (!rawJd.trim() || rawJd.trim().length < 20) {
-      setErrorMessage('Please provide a complete job description (at least 20 characters).');
-      return;
-    }
-
-    setErrorMessage(null);
-
-    try {
-      // Call backend /api/v1/jobs/extract
-      const extractResult = await apiService.extractJobDescription(rawJd);
-      onAnalyze(extractResult.job_id, extractResult);
-    } catch (err) {
-      console.error('Job extraction API failed:', err);
-      setErrorMessage(parseApiError(err));
+  const handleDefaultLoadSample = () => {
+    if (onLoadSample) {
+      onLoadSample();
+    } else {
+      setJobTitle('Senior AI & Systems Engineer');
+      setRawJd(SAMPLE_AI_JD);
     }
   };
 
   return (
-    <div className="glass-frame rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-5">
-      <div className="space-y-4">
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative glass-frame rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-5 h-full overflow-hidden transition-all duration-300 group"
+    >
+      {/* Interactive Subtle Cursor Spotlight */}
+      <div
+        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(circle 300px at var(--card-mouse-x, 50%) var(--card-mouse-y, 50%), rgba(168, 85, 247, 0.12) 0%, transparent 70%)`,
+        }}
+      />
+
+      <div className="space-y-4 relative z-10">
         {/* Card Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2.5">
@@ -60,8 +78,9 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleLoadSample}
-              className="glass-pill hover:bg-white/20 text-xs font-semibold text-purple-300 px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer"
+              onClick={handleDefaultLoadSample}
+              disabled={isAnalyzing}
+              className="glass-pill hover:bg-white/20 text-xs font-semibold text-purple-300 px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <span>⚡</span> Load Sample JD
             </button>
@@ -75,8 +94,10 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
             type="text"
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
+            disabled={isAnalyzing}
+            spellCheck={false}
             placeholder="e.g. Senior AI / ML Platform Engineer"
-            className="w-full px-3.5 py-2.5 rounded-xl glass-pill-dark text-xs text-white font-medium focus:outline-none focus:border-purple-400 border border-white/15"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/60 hover:bg-slate-900/70 focus:bg-slate-900/80 text-xs text-white font-medium focus:outline-none focus:border-purple-400 border border-white/15 transition-all disabled:opacity-50"
           />
         </div>
 
@@ -89,8 +110,10 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
             rows={5}
             value={rawJd}
             onChange={(e) => setRawJd(e.target.value)}
+            disabled={isAnalyzing}
+            spellCheck={false}
             placeholder="Paste target job description, requirements, and tech stack here..."
-            className="w-full p-3.5 rounded-xl glass-pill-dark text-xs text-white/90 leading-relaxed focus:outline-none focus:border-purple-400 border border-white/15 resize-none font-mono"
+            className="w-full p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-900/70 focus:bg-slate-900/80 text-xs text-white/90 leading-relaxed focus:outline-none focus:border-purple-400 border border-white/15 resize-none font-mono transition-all disabled:opacity-50"
           />
         </div>
 
@@ -102,19 +125,17 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
         )}
       </div>
 
-      {/* Action Trigger Button */}
-      <div className="pt-3 border-t border-white/10">
-        <button
-          type="button"
-          onClick={handleTriggerAnalysis}
-          disabled={isAnalyzing}
-          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-400 via-blue-500 to-purple-600 hover:opacity-95 text-white text-xs sm:text-sm font-bold tracking-wide glow-cyan-btn flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-        >
-          <span>{isAnalyzing ? 'Analyzing Skills & Gaps...' : 'Analyze Match & Skill Gaps'}</span>
-          <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">
-            →
-          </span>
-        </button>
+      {/* Symmetrical Card Footer matching ResumeUploader */}
+      <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white/50 relative z-10">
+        <span>
+          Target Role:{' '}
+          <strong className="text-white">
+            {jobTitle.trim() ? jobTitle : 'Custom Role'}
+          </strong>
+        </span>
+        <span className="text-purple-300 font-medium">
+          {rawJd.trim().length > 0 ? `${rawJd.trim().length} chars entered` : 'Awaiting Input'}
+        </span>
       </div>
     </div>
   );
