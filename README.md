@@ -45,7 +45,10 @@ By integrating Natural Language Processing (NLP), structured Pydantic extraction
 - 🏆 **Career Match Assessment**: Evaluates candidacy into **High Match**, **Moderate Match**, or **Low Match** tiers, accompanied by Strengths, Skill Gaps, Weaknesses, and Strategic Improvements.
 - 🚀 **Skill Prioritization**: Ranks missing skills into actionable badges (`Priority 1 — Core Blocking`, `Priority 2 — High Value`, `Priority 3 — Secondary`).
 - 🗺️ **Personalized Learning Plan**: Generates milestone-based roadmaps tailored to user-specified weekly learning hours and preferred study duration.
-- 💬 **RAG-Powered AI Career Assistant**: Contextual streaming chatbot providing interactive guidance on resume tailoring, interview prep, and skill acquisition.
+- 🗂️ **Multi-Roadmap Carousel & 1:N Role Tracker**: Swipeable horizontal deck allowing candidates to concurrently track multiple target job applications ($1:N$) with individual ATS match score badges, daily/weekly pacing toggles, and isolated task completion lists.
+- 🗑️ **Safe Roadmap Cancellation**: Gated 3D frosted glass modal requiring explicit confirmation before removing an unwanted target role and its study milestones.
+- 🔐 **Two-Tier Storage & Supabase Cloud Sync**: Instant offline guest mode via browser `localStorage` paired with Supabase Auth & PostgreSQL schema supporting multi-tenant profiles and multi-device state sync.
+- 💬 **RAG-Powered AI Career Assistant**: Contextual streaming chatbot providing interactive guidance on resume tailoring, interview prep, and skill acquisition powered by empirically verified **Parent-Child hierarchical retrieval** (EXP-RAG-01: 100% Hit Rate, 0.92 F1, 93.68 Winner Score).
 
 ---
 
@@ -56,7 +59,7 @@ Career Compass AI uses a **Layered Monolith Architecture** engineered for high m
 ```mermaid
 graph TD
     subgraph Presentation ["Presentation Layer"]
-        UI["React / TypeScript SPA + Tailwind UI"]
+        UI["React / TypeScript SPA + Tailwind UI (Multi-Roadmap Carousel)"]
     end
 
     subgraph APILayer ["Application API Layer"]
@@ -77,8 +80,9 @@ graph TD
     end
 
     subgraph Persistence ["Persistence Layer"]
-        RDB[(Relational DB: Profiles / Jobs)]
-        VDB[(Vector DB: Chroma / Qdrant)]
+        LOC[("Client Offline Store (localStorage)")]
+        RDB[("Supabase PostgreSQL (Profiles / Jobs / Roadmaps)")]
+        VDB[("Vector DB: Chroma / Qdrant")]
     end
 
     UI -->|"HTTPS / REST API"| API
@@ -93,6 +97,105 @@ graph TD
     JDP --> RDB
     VR --> VDB
     CHAT --> VDB
+```
+
+### 5.1 Database Schema & Entity-Relationship Architecture (Supabase PostgreSQL)
+
+The system manages a $1:N$ multi-target portfolio where a candidate can evaluate multiple job opportunities and track separate upskilling roadmaps concurrently against their verified profile.
+
+```mermaid
+erDiagram
+    USER_PROFILES ||--o{ WORK_EXPERIENCES : has
+    USER_PROFILES ||--o{ CERTIFICATIONS : holds
+    USER_PROFILES ||--o{ ANALYSIS_RESULTS : analyzed_with
+    JOB_DESCRIPTIONS ||--o{ ANALYSIS_RESULTS : evaluated_against
+    ANALYSIS_RESULTS ||--o{ ROADMAPS : generates
+    ROADMAPS ||--o{ ROADMAP_TASKS : tracks
+
+    USER_PROFILES {
+        string id PK "usr_xxxxxxxx"
+        string user_id "auth.users UUID (optional)"
+        string full_name
+        string current_role
+        string target_role
+        string education_degree
+        string institution
+        int graduation_year
+        json skills "Array of technical skills"
+        json soft_skills "Array of soft skills"
+        json career_interests "Target specializations"
+        string status "active / archived"
+        string created_at "ISO-8601 Timestamp"
+    }
+
+    WORK_EXPERIENCES {
+        int id PK "Auto-increment"
+        string profile_id FK "References user_profiles.id"
+        string company
+        string role
+        string duration
+        json highlights "Bullet achievements"
+    }
+
+    CERTIFICATIONS {
+        int id PK "Auto-increment"
+        string profile_id FK "References user_profiles.id"
+        string name
+        string issuer
+        int issue_year
+    }
+
+    JOB_DESCRIPTIONS {
+        string id PK "job_xxxxxxxx"
+        string user_id "auth.users UUID (optional)"
+        string company_name
+        string job_title
+        text raw_job_description
+        json required_skills "Mandatory criteria"
+        json preferred_skills "Bonus qualifications"
+        json responsibilities "Extracted duties"
+        string required_experience
+        string education_requirements
+        string work_mode "Remote / Hybrid / Onsite"
+        string location
+        string salary_range
+        string created_at "ISO-8601 Timestamp"
+    }
+
+    ANALYSIS_RESULTS {
+        string id PK "anl_xxxxxxxx"
+        string profile_id FK "References user_profiles.id"
+        string job_id FK "References job_descriptions.id"
+        string readiness_category "High / Moderate / Low Match"
+        float match_score_percentage "0.0% - 100.0%"
+        json matched_skills "Common competencies"
+        json missing_skills "Identified gap skills"
+        json partially_available_skills "Transferable skills"
+        json assessment "LLM Qualitative Analysis"
+        string created_at "ISO-8601 Timestamp"
+    }
+
+    ROADMAPS {
+        string id PK "rdm_xxxxxxxx"
+        string user_id "auth.users UUID (optional)"
+        string analysis_id FK "References analysis_results.id"
+        string company_name
+        string job_title
+        int ats_score_percentage
+        int weekly_hours "Study commitment (1-40h/wk)"
+        int duration_weeks "Pacing (1-52 wks)"
+        json prioritization_badges "Priority 1, 2, 3 Badges"
+        json weekly_milestones "Weekly curriculum & resources"
+        string created_at "ISO-8601 Timestamp"
+    }
+
+    ROADMAP_TASKS {
+        int id PK "Auto-increment"
+        string roadmap_id FK "References roadmaps.id"
+        string user_id "auth.users UUID (optional)"
+        string task_key "w1_t0, w2_t1, etc."
+        boolean is_completed "Live checkbox state"
+    }
 ```
 
 ---
@@ -129,13 +232,13 @@ graph TD
 ![Docker](https://img.shields.io/badge/Docker-09090B?style=for-the-badge&logo=docker&logoColor=2496ED)
 ![Pytest](https://img.shields.io/badge/Pytest-09090B?style=for-the-badge&logo=pytest&logoColor=0A9EDC)
 
-| Layer                | Technologies Used                                                                            |
-| :------------------- | :------------------------------------------------------------------------------------------- |
-| **Frontend**         | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons                                       |
-| **Backend**          | Python 3.11+, FastAPI, Pydantic v2, Uvicorn, SQLAlchemy                                      |
-| **AI & RAG**         | LangChain (`langchain-groq`), **Groq LPU Inference API** (Llama 3.3 70B)                     |
-| **Databases**        | **Supabase PostgreSQL** (Relational SQL) & **Pinecone Cloud** (Vector DB, ChromaDB fallback) |
-| **Testing & DevOps** | Pytest, HTTPX, Docker, Docker Compose                                                        |
+| Layer                | Technologies Used                                                                                                                                                           |
+| :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**         | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons                                                                                                                      |
+| **Backend**          | Python 3.11+, FastAPI, Pydantic v2, Uvicorn, SQLAlchemy                                                                                                                     |
+| **AI & RAG**         | LangChain (`langchain-groq`, `langchain-pinecone`), **Groq LPU Inference API** (Llama 3.3 70B), **Parent-Child RAG Retrieval** (`BAAI/bge-small-en-v1.5`, 384-dim, Top-K=5) |
+| **Databases**        | **Supabase PostgreSQL** (Relational SQL) & **Pinecone Cloud** (Vector DB, ChromaDB fallback)                                                                                |
+| **Testing & DevOps** | Pytest, HTTPX, Docker, Docker Compose                                                                                                                                       |
 
 ---
 
@@ -191,9 +294,10 @@ sequenceDiagram
 
     User->>UI: Paste Target Job Description
     UI->>API: POST /api/v1/analysis/gap
-    API->>AI: Compare Profile Skills vs JD Requirements (Groq Llama 3)
-    AI-->>API: Return Matched, Missing, Partial Skills + Match Tier
-    API-->>UI: Render Skill Gap Matrix & Match Score
+    API->>API: Compute Deterministic Skill Overlap & ATS Match Score (Zero Hallucination)
+    API->>AI: Generate Qualitative Assessment via LangChain LCEL Chain (Groq Llama 3)
+    AI-->>API: Return Candidate Strengths, Gaps & Recommendations
+    API-->>UI: Render Skill Gap Matrix, ATS Gauge & Assessment
 
     User->>UI: Request Learning Plan (Specify Hours & Weeks)
     UI->>API: POST /api/v1/roadmap/generate

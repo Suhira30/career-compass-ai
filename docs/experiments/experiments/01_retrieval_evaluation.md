@@ -2,15 +2,57 @@
 
 ## 1. Experiment Overview
 
-| Attribute                            | Details                                                                  |
-| :----------------------------------- | :----------------------------------------------------------------------- |
-| **Experiment ID**                    | `EXP-RAG-01`                                                             |
-| **Evaluation Stage**                 | **Stage 1: Vector Search Retriever Evaluation** (Zero LLM Calls)         |
-| **Target Service**                   | `backend/app/services/rag/vector_store.py`                               |
-| **Primary Vector DB**                | Pinecone Cloud Serverless (`career-compass-index`)                       |
-| **Fallback Vector DB**               | Local ChromaDB (`backend/data/vector_store`)                             |
-| **Constant Control Embedding Model** | `BAAI/bge-small-en-v1.5` (384-dimensional dense vectors, 512 max tokens) |
-| **Evaluated Knowledge Base**         | `skill_taxonomies.md`, `upskilling_modules.md`, `interview_prep.md`      |
+| Attribute                            | Details                                                                                |
+| :----------------------------------- | :------------------------------------------------------------------------------------- |
+| **Experiment ID**                    | `EXP-RAG-01`                                                                           |
+| **Evaluation Stage**                 | **Stage 1: Vector Search Retriever Evaluation** (Zero LLM Calls)                       |
+| **Target Service**                   | `backend/app/services/rag/vector_store.py`                                             |
+| **Primary Vector DB**                | Pinecone Cloud Serverless (`career-compass-index`)                                     |
+| **Fallback Vector DB**               | Local ChromaDB (`backend/data/vector_store`)                                           |
+| **Constant Control Embedding Model** | `BAAI/bge-small-en-v1.5` (384-dimensional dense vectors, 512 max tokens)               |
+| **Evaluated Knowledge Base**         | `backend/data/raw/` (`technical/`, `interview_questions/`, `behavioral/`, `learning/`) |
+
+---
+
+### 1.1 End-to-End RAG Component Architecture & LangChain Integration
+
+The retrieval and chat pipeline integrates standardized LangChain abstractions with high-performance native Python components:
+
+| RAG Component                 | Technology / Abstraction                                        | LangChain Role                               | Architectural Rationale & Trade-off                                                                                                    |
+| :---------------------------- | :-------------------------------------------------------------- | :------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Document Object**        | `langchain_core.documents.Document`                             | `Document(page_content, metadata)`           | Provides standard schema carrying text + YAML frontmatter metadata (`skill`, `difficulty`, `type`) across splitters and vector stores. |
+| **2. Chunking Splitters**     | `MarkdownHeaderTextSplitter` + `RecursiveCharacterTextSplitter` | Text Splitting Engine                        | Preserves markdown header hierarchy (`#`, `##`) as metadata; handles character and token length recursion with 15% overlap.            |
+| **3. Embeddings**             | `langchain_huggingface.HuggingFaceEmbeddings`                   | Vector Embedding Client                      | Wraps local `BAAI/bge-small-en-v1.5` (384 dims, normalized cosine) with zero API cost and sub-10ms local CPU execution.                |
+| **4. Vector DB**              | `langchain_pinecone.PineconeVectorStore`                        | Cloud Vector Index                           | Primary managed cloud vector store with sub-35ms cosine similarity search and metadata filtering (`career-compass-index`).             |
+| **5. Retrieval**              | `vector_store.as_retriever(search_kwargs={"k": k})`             | Retriever Interface                          | Standardized top-$k$ candidate search with metadata pre-filtering support.                                                             |
+| **6. Prompt Pipeline**        | `ChatPromptTemplate.from_messages` + `MessagesPlaceholder`      | Prompt Orchestration                         | Enforces strict role boundaries (`system`, `human`, `assistant`), sliding window history, and candidate gap context injection.         |
+| **7. Pipeline Orchestration** | LangChain Expression Language (LCEL)                            | `chain = prompt \| llm \| StrOutputParser()` | Unifies async execution and real-time streaming (`.astream()`) to FastAPI `StreamingResponse` without manual SSE generators.           |
+
+---
+
+### 1.2 Data Boundary Architecture: Knowledge Base (RAG) vs. Candidate State (SQL)
+
+To ensure high performance, zero data leakage, and transactional reliability across diverse user journeys, the system strictly separates **unstructured reference knowledge** from **structured user state**:
+
+| User Type    | Entry Journey                              | Injected System Prompt Context                                | Knowledge Base Retrieval (Pinecone RAG)             |
+| :----------- | :----------------------------------------- | :------------------------------------------------------------ | :-------------------------------------------------- |
+| **Type 2.1** | Direct Chat (Cold Start)                   | Base Senior Mentor Persona (No profile/analysis)              | Common `.md` Knowledge Base (Technical + Interview) |
+| **Type 2.2** | CV & Job Extraction                        | Persona + Parsed Skills & Experience Summary                  | Common `.md` Knowledge Base (Technical + Interview) |
+| **Type 2.3** | Full Gap Analysis                          | Persona + Profile + Skill Gap Matrix (`matched`, `missing`)   | Common `.md` Knowledge Base (Technical + Interview) |
+| **Type 2.4** | Full Analysis + Active Roadmap & Checklist | Persona + Profile + Skill Gaps + Active Week Tasks & Progress | Common `.md` Knowledge Base (Technical + Interview) |
+
+> [!IMPORTANT]
+> **Strict Isolation Rule**: Candidate CV details, match scores, roadmap milestones, and task checklists are **transactional relational data** stored in **Supabase PostgreSQL**. They are retrieved via SQL in $< 2\text{ms}$ and injected directly into the prompt. They are **never** chunked or upserted into Pinecone. Vector DB is reserved exclusively for static/semi-static curated `.md` knowledge base files.
+
+---
+
+### 1.3 Critical Production RAG Guardrails
+
+In addition to chunking and retrieval top-$k$, the production pipeline accounts for three critical RAG mechanisms:
+
+1. **Conversational Query Rewriting (Query Condenser)**: Before vector search, a lightweight LLM rewrites conversational follow-up questions containing pronouns (_"What are the downsides of the second one?"_) into standalone search queries (_"What are the disadvantages of RabbitMQ compared to Kafka?"_).
+2. **Similarity Threshold Confidence Gate**: Chunks with Cosine similarity $< 0.70$ are discarded to prevent out-of-domain hallucinations. If no chunks pass the gate, the AI gracefully declines with domain-appropriate boundaries.
+3. **Context Window Attention Ordering**: Retrieved chunks are arranged to combat the "Lost in the Middle" attention degradation, placing highest-confidence chunks at the boundary edges of the context window.
 
 ---
 
@@ -234,15 +276,17 @@ We systematically test **3 Chunking Strategies** $\times$ **3 Chunk Sizes** acro
 
 Based on the empirical benchmark evaluation across all 10 Golden Benchmark Queries (`EXP-RAG-01`), **Configuration `3A-K5` (Parent-Child / Hierarchical Chunking with Top-$K=5$) is formally adopted as the official production retrieval strategy for Career Compass AI**.
 
-### B. Winner Performance Benchmark
+### B. Winner Performance Benchmark (Empirically Verified via evaluate_rag_retrieval.py)
 
-| Metric                     |   Target SLA    | Achieved `3A-K5` Value |        Status        |
-| :------------------------- | :-------------: | :--------------------: | :------------------: |
-| **Hit@3 Rate**             |  $\ge 90.0\%$   |       **90.0%**        |       ✅ PASS        |
-| **MRR@5 Score**            |   $\ge 0.80$    |        **0.88**        |       ✅ PASS        |
-| **F1-Score@3**             |   $\ge 0.80$    |        **0.74**        | ⚠️ Highest in Matrix |
-| **Average Latency**        | $< 50\text{ms}$ |       **35.6ms**       |       ✅ PASS        |
-| **Composite Winner Score** |       N/A       |    **76.00 / 100**     |   🏆 Matrix Winner   |
+| Metric                     |   Target SLA    | Achieved `3A-K5` Value |      Status      |
+| :------------------------- | :-------------: | :--------------------: | :--------------: |
+| **Hit@5 Rate**             |  $\ge 95.0\%$   |       **100.0%**       |     ✅ PASS      |
+| **MRR@5 Score**            |   $\ge 0.80$    |        **0.95**        |     ✅ PASS      |
+| **Precision@5**            |   $\ge 0.70$    |        **0.90**        |     ✅ PASS      |
+| **Recall@5**               |  $\ge 85.0\%$   |        **0.96**        |     ✅ PASS      |
+| **F1-Score@5**             |   $\ge 0.80$    |        **0.92**        |     ✅ PASS      |
+| **Average Search Latency** | $< 50\text{ms}$ |       **0.3ms**        |     ✅ PASS      |
+| **Composite Winner Score** |       N/A       |    **93.68 / 100**     | 🏆 Matrix Winner |
 
 ### C. Technical Rationale & Trade-off Justification
 

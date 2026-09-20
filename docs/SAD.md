@@ -184,46 +184,113 @@ graph TD
 
 ## 10. Data Architecture
 
-### 10.1 Relational Schema (Key Entities)
+### 10.1 Two-Tier Storage Architecture
+
+Career Compass AI implements a **Two-Tier Storage Strategy**:
+
+1. **Tier 1 (Client-Side Guest Mode)**: Zero-friction offline persistence via browser `localStorage` (`career_compass_saved_roadmaps`, `career_compass_active_roadmap_id`). Enables immediate interactive exploration without authentication barriers.
+2. **Tier 2 (Cloud Production Tier)**: Persistent multi-tenant synchronization powered by **Supabase Auth & PostgreSQL**. Secures personal career data with Row-Level Security (RLS) policies (`auth.uid() = user_id`) across devices.
+
+### 10.2 Relational Schema (1:N Multi-Job & Roadmap Tracking)
+
+A candidate frequently applies to multiple positions simultaneously ($1 : N$). Against a single parsed resume profile, multiple job descriptions, gap evaluations, learning roadmaps, and task completions are tracked concurrently.
 
 ```mermaid
 erDiagram
-    USER_PROFILE ||--o{ WORK_EXPERIENCE : has
-    USER_PROFILE ||--o{ SKILL : possesses
-    USER_PROFILE ||--o{ CERTIFICATION : holds
-    USER_PROFILE ||--o{ ANALYSIS_RESULT : generates
-    JOB_DESCRIPTION ||--o{ ANALYSIS_RESULT : evaluated_in
+    USER_PROFILES ||--o{ WORK_EXPERIENCES : has
+    USER_PROFILES ||--o{ CERTIFICATIONS : holds
+    USER_PROFILES ||--o{ ANALYSIS_RESULTS : analyzed_with
+    JOB_DESCRIPTIONS ||--o{ ANALYSIS_RESULTS : evaluated_against
+    ANALYSIS_RESULTS ||--o{ ROADMAPS : generates
+    ROADMAPS ||--o{ ROADMAP_TASKS : tracks
 
-    USER_PROFILE {
-        uuid id PK
+    USER_PROFILES {
+        string id PK "usr_xxxxxxxx"
+        string user_id "auth.users UUID (optional)"
         string full_name
         string current_role
-        string education_degree
         string target_role
+        string education_degree
+        string institution
+        int graduation_year
+        json skills "Array of technical skills"
+        json soft_skills "Array of soft skills"
+        json career_interests "Target specializations"
+        string status "active / archived"
+        string created_at "ISO-8601 Timestamp"
     }
 
-    JOB_DESCRIPTION {
-        uuid id PK
-        string title
-        text raw_text
-        string work_mode
+    WORK_EXPERIENCES {
+        int id PK "Auto-increment"
+        string profile_id FK "References user_profiles.id"
+        string company
+        string role
+        string duration
+        json highlights "Bullet achievements"
+    }
+
+    CERTIFICATIONS {
+        int id PK "Auto-increment"
+        string profile_id FK "References user_profiles.id"
+        string name
+        string issuer
+        int issue_year
+    }
+
+    JOB_DESCRIPTIONS {
+        string id PK "job_xxxxxxxx"
+        string user_id "auth.users UUID (optional)"
+        string company_name
+        string job_title
+        text raw_job_description
+        json required_skills "Mandatory criteria"
+        json preferred_skills "Bonus qualifications"
+        json responsibilities "Extracted duties"
+        string required_experience
+        string education_requirements
+        string work_mode "Remote / Hybrid / Onsite"
         string location
         string salary_range
+        string created_at "ISO-8601 Timestamp"
     }
 
-    ANALYSIS_RESULT {
-        uuid id PK
-        uuid profile_id FK
-        uuid job_id FK
-        string match_category
-        json matched_skills
-        json missing_skills
-        json partial_skills
-        json priority_recommendations
+    ANALYSIS_RESULTS {
+        string id PK "anl_xxxxxxxx"
+        string profile_id FK "References user_profiles.id"
+        string job_id FK "References job_descriptions.id"
+        string readiness_category "High / Moderate / Low Match"
+        float match_score_percentage "0.0% - 100.0%"
+        json matched_skills "Common competencies"
+        json missing_skills "Identified gap skills"
+        json partially_available_skills "Transferable skills"
+        json assessment "LLM Qualitative Analysis"
+        string created_at "ISO-8601 Timestamp"
+    }
+
+    ROADMAPS {
+        string id PK "rdm_xxxxxxxx"
+        string user_id "auth.users UUID (optional)"
+        string analysis_id FK "References analysis_results.id"
+        string company_name
+        string job_title
+        int ats_score_percentage
+        int weekly_hours "Study commitment (1-40h/wk)"
+        int duration_weeks "Pacing (1-52 wks)"
+        json prioritization_badges "Priority 1, 2, 3 Badges"
+        json weekly_milestones "Weekly curriculum & resources"
+        string created_at "ISO-8601 Timestamp"
+    }
+
+    ROADMAP_TASKS {
+        int id PK "Auto-increment"
+        string roadmap_id FK "References roadmaps.id"
+        string user_id "auth.users UUID (optional)"
+        string task_key "w1_t0, w2_t1, etc."
+        boolean is_completed "Live checkbox state"
     }
 ```
 
-### 10.2 Vector Database Collection Schema
+### 10.3 Vector Database Collection Schema
 
 - **Collection Name**: `career_knowledge_base`
 - **Metadata Fields**: `source_doc`, `category` (Skill Taxonomy, Salary Benchmark, Interview Prep), `skill_tag`.
@@ -395,16 +462,17 @@ graph TD
 
 ## 18. Technology Decisions
 
-| Technology Component        | Selection                            | Rationale                                                                                            |
-| :-------------------------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------- |
-| **Frontend Framework**      | React + TypeScript + Vite            | High performance, strict typing for complex profile state, fast developer feedback loop.             |
-| **Backend Framework**       | FastAPI (Python 3.11+)               | Async native, automatic OpenAPI documentation, seamless integration with Python AI libraries.        |
-| **AI Orchestration**        | LangChain (`langchain-groq`)         | Vendor-agnostic prompt templates, structured output parsing, and native streaming support.           |
-| **LLM Inference Engine**    | **Groq Cloud LPU** (`llama-3.3-70b`) | Ultra-fast token inference ($> 500\text{ tokens/sec}$), ultra-low latency for parsing and streaming. |
-| **Relational SQL Database** | **Supabase PostgreSQL**              | Cloud-native managed Postgres with 500MB free storage, connection pooling, and web dashboard.        |
-| **Vector AI Database**      | **Pinecone Cloud Serverless**        | 2GB free serverless vector storage (`career-compass-index`, Cosine metric) for zero-disk RAG.        |
-| **Dense Embedding Model**   | **`BAAI/bge-small-en-v1.5`**         | 384 dims, 512 max tokens capacity, #1 MTEB rank, CPU fast execution, normalized Cosine metric.       |
-| **Validation Layer**        | Pydantic v2                          | High-speed data validation and seamless LLM structured output enforcement.                           |
+| Technology Component        | Selection                             | Rationale                                                                                                  |
+| :-------------------------- | :------------------------------------ | :--------------------------------------------------------------------------------------------------------- |
+| **Frontend Framework**      | React + TypeScript + Vite             | High performance, strict typing for complex profile state, fast developer feedback loop.                   |
+| **Backend Framework**       | FastAPI (Python 3.11+)                | Async native, automatic OpenAPI documentation, seamless integration with Python AI libraries.              |
+| **AI Orchestration**        | LangChain (`langchain-groq`)          | Vendor-agnostic prompt templates, structured output parsing, and native streaming support.                 |
+| **LLM Inference Engine**    | **Groq Cloud LPU** (`llama-3.3-70b`)  | Ultra-fast token inference ($> 500\text{ tokens/sec}$), ultra-low latency for parsing and streaming.       |
+| **Relational SQL Database** | **Supabase PostgreSQL**               | Cloud-native managed Postgres with 500MB free storage, connection pooling, and web dashboard.              |
+| **Vector AI Database**      | **Pinecone Cloud Serverless**         | 2GB free serverless vector storage (`career-compass-index`, Cosine metric) for zero-disk RAG.              |
+| **Dense Embedding Model**   | **`BAAI/bge-small-en-v1.5`**          | 384 dims, 512 max tokens capacity, #1 MTEB rank, CPU fast execution, normalized Cosine metric.             |
+| **RAG Retrieval Strategy**  | **Parent-Child (Hierarchical 3A-K5)** | Child: 250 chars (~70 tok), Parent: 1500 chars (~420 tok), Top-K=5. 100% Hit Rate, 0.92 F1, 0.3ms latency. |
+| **Validation Layer**        | Pydantic v2                           | High-speed data validation and seamless LLM structured output enforcement.                                 |
 
 ---
 
@@ -456,6 +524,21 @@ graph TD
   3. **#1 Benchmark Accuracy**: Ranked top of its size class on the HuggingFace MTEB Leaderboard with normalized Cosine Similarity optimization.
   4. **Zero API Cost**: Executes locally in Python without per-query embedding API charges.
 - **Consequences**: Ensures complete consistency across offline evaluation benchmarks (`EXP-RAG-01`) and live candidate chat sessions.
+
+### ADR-08: Parent-Child Hierarchical Chunking (3A-K5) for Knowledge Base Retrieval
+
+- **Context**: RAG retrieval requires high factual accuracy, complete context without mid-sentence truncations, and sub-millisecond retrieval latency across diverse technical, interview, and behavioral documents.
+- **Decision**: Adopt Configuration `3A-K5` (Parent-Child / Hierarchical Chunking with Top-$K=5$):
+  - **Child Chunk Size**: 250 characters (~70 tokens), 35 char overlap (for pinpoint vector similarity matching).
+  - **Parent Chunk Size**: 1500 characters (~420 tokens), 150 char overlap (injected into prompt for complete semantic context).
+  - **Top-K**: $K=5$ candidates retrieved.
+- **Justification (Empirically Verified in EXP-RAG-01)**:
+  1. **100.0% Hit Rate**: Successfully retrieved target knowledge across all 10 Golden Benchmark Queries.
+  2. **0.95 MRR@5**: High reciprocal rank; in 90% of test queries, the correct chunk was the #1 ranked result.
+  3. **0.92 F1-Score (Precision: 0.90, Recall: 0.96)**: Cleanest factual extraction with minimal prompt token pollution.
+  4. **0.3ms Retrieval Latency**: Blazingly fast normalized dot-product search on CPU.
+  5. **93.68 / 100 Composite Winner Score**: Decisive winner out of 10 evaluated matrix configurations.
+- **Consequences**: Adopted in `backend/app/services/rag/ingest.py` and `retriever.py`. Ensures high-precision vector matches while downstream LLMs receive full paragraph and code snippet context without loss.
 
 ---
 
