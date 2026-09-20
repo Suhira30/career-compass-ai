@@ -92,33 +92,57 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 - [x] **Task 2.6.3**: Enable response streaming via FastAPI `StreamingResponse`.
 - [x] **Task 2.6.4**: Expose `/api/v1/chat/message` endpoint.
 
+### Task 2.7: Knowledge Base Ingestion & Production RAG Guardrails (ADR-07, EXP-RAG-01)
+
+- [ ] **Task 2.7.1**: Run ingestion pipeline (`backend/app/services/rag/ingest.py`) to chunk, embed, and index all curated `.md` documents (`technical/`, `interview_questions/`, `behavioral/`, `learning/`) into Pinecone Serverless using adopted Parent-Child `3A-K5` configuration.
+- [ ] **Task 2.7.2**: Implement Conversational Query Condenser (Rewriter) in `chat_chain.py` that translates pronoun-heavy follow-up questions into standalone vector search queries prior to Pinecone retrieval.
+- [ ] **Task 2.7.3**: Implement Cosine Similarity Threshold Gate ($< 0.70$) in `vector_store.py` to filter out low-confidence chunks and prevent out-of-domain hallucinations.
+
 ---
 
 ## Phase 3: Frontend User Interface & Flow Integration
 
 ### Task 3.1: Profile Management & Resume Upload UI
 
-- [ ] **Task 3.1.1**: Build `ResumeUploader` component with drag-and-drop, format validation, and upload progress bar.
-- [ ] **Task 3.1.2**: Build `ExtractedProfileReview` modal allowing users to edit auto-extracted skills, links, and experience before saving.
-- [ ] **Task 3.1.3**: Build `ProfileEditor` component for manual profile creation and updates.
+- [x] **Task 3.1.1**: Build `ResumeUploader` component with drag-and-drop, format validation, and interactive spotlight cursor physics.
+- [x] **Task 3.1.2**: Build `ExtractedProfileReview` badge cloud allowing users to edit auto-extracted skills, add custom pills, and verify match status.
+- [x] **Task 3.1.3**: Build symmetrical dual-pane workspace layout with unified interactive analyze CTA.
 
 ### Task 3.2: Job Description Input & Analysis Matrix UI
 
-- [ ] **Task 3.2.1**: Build `JobDescriptionInput` text area component with character counter and sample JD loader.
-- [ ] **Task 3.2.2**: Build `MatchScoreCard` component visually displaying readiness category (`High`, `Moderate`, `Low Match`) and match metrics.
-- [ ] **Task 3.2.3**: Build `SkillGapMatrix` component rendering 3 distinct columns for Matched, Missing, and Partial skills.
+- [x] **Task 3.2.1**: Build `JobDescriptionInput` text area component with syntax highlight styling, sample JD loader, and balanced height.
+- [x] **Task 3.2.2**: Build `MatchScoreCard` component visually displaying readiness category (`High`, `Moderate`, `Low Match`) and match metrics.
+- [x] **Task 3.2.3**: Build `SkillGapMatrix` component rendering distinct columns for Matched, Missing, and Partial skills.
 
 ### Task 3.3: Personalized Learning Roadmap UI
 
-- [ ] **Task 3.3.1**: Build `LearningConstraintsForm` (Available Hours/Week, Duration in Weeks).
-- [ ] **Task 3.3.2**: Build `PrioritySkillsList` component highlighting `Priority 1`, `Priority 2`, `Priority 3` skill badges.
-- [ ] **Task 3.3.3**: Build `RoadmapTimeline` widget displaying milestone tasks with interactive checkboxes for progress tracking.
+- [x] **Task 3.3.1**: Build `RoadmapControlsBar` with Study Hours Slider (2–25h/wk), Duration Timeline Pills (2, 4, 8, 12 Wks), and Day/Week pacing switcher.
+- [x] **Task 3.3.2**: Build `PriorityBadgesOverview` component highlighting `Priority 1`, `Priority 2`, `Priority 3` skill badges.
+- [x] **Task 3.3.3**: Build `WeeklyTimelineStepper` widget displaying milestone tasks with interactive checkboxes, live strike-through styling, and verified documentation links.
 
-### Task 3.4: Streaming AI Assistant Chat UI
+### Task 3.5: Multi-Roadmap Carousel Deck & Role Portfolio (FR-09A, FR-09B)
 
-- [ ] **Task 3.4.1**: Build `CareerChatWidget` interface with message history list and input prompt box.
-- [ ] **Task 3.4.2**: Integrate real-time streaming response rendering.
-- [ ] **Task 3.4.3**: Add quick suggestion chips (e.g., "How do I improve my Docker skills?", "Suggest project ideas").
+- [x] **Task 3.5.1**: Build `RoadmapCarouselHeader` component: horizontal swipeable snap deck tracking multiple concurrent target roles ($1:N$).
+- [x] **Task 3.5.2**: Display individual ATS match score badges, schedule commitments, and live task completion progress on each role card.
+- [x] **Task 3.5.3**: Build `CancelRoadmapModal`: frosted glass confirmation dialog protecting against accidental deletion of study milestones.
+- [x] **Task 3.5.4**: Implement isolated task persistence per roadmap in `localStorage` (`career_compass_saved_roadmaps`).
+- [x] **Task 3.5.5**: Add terminal `+ Track Another Role` card routing to Gap Analysis for new JD ingestion.
+
+### Task 3.6: Supabase Authentication & PostgreSQL Cloud Persistence
+
+- [x] **Task 3.6.1**: Setup Authentication Context & Auth Modal (`frontend/src/context/AuthContext.tsx`, `AuthModal.tsx`).
+- [x] **Task 3.6.2**: Design and provision PostgreSQL relational tables in Supabase (`user_profiles`, `job_descriptions`, `analysis_results`, `roadmaps`, `roadmap_tasks`).
+- [x] **Task 3.6.3**: Implement FastAPI persistence routes (`GET /roadmap/user/{user_id}`, `POST /roadmap/save`, `POST /roadmap/{id}/task`, `DELETE /roadmap/{id}`) with SQLAlchemy ORM models (`RoadmapDB`, `RoadmapTaskDB`).
+- [x] **Task 3.6.4**: Implement two-tier migration: seamlessly sync offline `localStorage` roadmaps to Supabase upon sign-in with background optimistic updates.
+
+### Task 3.4: Streaming AI Assistant Chat UI (Career Copilot)
+
+- [ ] **Task 3.4.1**: Build `CareerChatWidget` drawer & floating trigger button with 3D Quantum Glass styling, pulse animations, and minimize/dock controls.
+- [ ] **Task 3.4.2**: Implement Adaptive Context Synchronizer detecting User Types (2.1 Cold Start, 2.2 Profile Loaded, 2.3 Gap Analysis Complete, 2.4 Active Roadmap & Checklist) and injecting active IDs (`analysis_id`, `roadmap_id`) into chat requests.
+- [ ] **Task 3.4.3**: Build Real-Time Token Streaming Engine connecting to `/api/v1/chat/message` with auto-scroll management, user scroll-lock, and Markdown rendering (code syntax highlighting, bullet lists, bold text).
+- [ ] **Task 3.4.4**: Implement Conversational Sliding Window (4–6 turns) & Supabase History Cloud Persistence (`chat_sessions`, `chat_messages`) for session switching and refresh durability.
+- [ ] **Task 3.4.5**: Add Dynamic Contextual Suggestion Chips customized to the user's active journey (e.g. "Explain Week 1 Roadmap", "Quiz me on Redis", "How to close my Docker gap").
+- [ ] **Task 3.4.6**: Implement Robust Error Boundaries & Fallback Handlers for API rate limits (429), token exhaustion, and offline network reconnects.
 
 ---
 

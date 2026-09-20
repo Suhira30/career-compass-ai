@@ -142,6 +142,31 @@ This Requirements Specification Document (RSD) defines the functional and non-fu
 
 ---
 
+### FR-09A: Multi-Target Roadmap Deck & Independent Tracking
+
+- **Description**: The system shall support concurrently tracking multiple target job roles ($1:N$) in a horizontal swipeable/scrollable deck.
+- **Card Attributes**:
+  - Target Job Title and Company Name
+  - ATS Match Score percentage badge with dynamic color thresholding
+  - Time Budget indicator (Weekly Hours vs. Daily Target pace)
+  - Live task completion progress bar ($X / Y$ tasks completed, percentage)
+  - Active curriculum indicator
+- **Independent State Isolation**:
+  - Checking off a task in Roadmap A shall not alter task completion states in Roadmap B.
+  - Progress shall be auto-persisted to client storage (`localStorage`) and cloud database (Supabase).
+
+---
+
+### FR-09B: Gated Roadmap Cancellation with Confirmation Modal
+
+- **Description**: The system shall provide an explicit cancellation mechanism to remove unwanted target roadmaps from the active deck.
+- **Safety Safeguard**:
+  - Clicking the delete button shall trigger a centered 3D frosted glass modal displaying the target company and role name.
+  - The modal shall explicitly warn that all completed task checkboxes and milestone tracking for this role will be cleared.
+  - The roadmap shall only be removed if the user explicitly confirms ("Yes, Cancel Roadmap").
+
+---
+
 ### FR-10: Career AI Assistant
 
 - **Description**: The system shall provide an interactive conversational AI chatbot for user Q&A regarding their career match assessment, resume optimization, and skill gap strategy.

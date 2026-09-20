@@ -76,11 +76,14 @@ Career Compass AI offers an end-to-end, data-driven career copilot:
 - **Market Insights & Benchmarking**: Real-time Q&A on salary expectations, role expectations, and emerging industry trends.
 - **Interactive Guidance**: Explaining _why_ specific skills are needed for a target role.
 
-### 4.4 Module 4: Personalized Learning & Upskilling Roadmap
+### 4.4 Module 4: Dynamic Learning Roadmap Engine
 
 - **Milestone Generation**: Phased learning path (e.g., Month 1: Fundamentals, Month 2: Core Frameworks, Month 3: Projects).
-- **Resource Curation**: Curated links to documentation, open-source projects, and top learning platforms.
-- **Progress Tracking**: Interactive task checklists to mark completed learning milestones.
+- **Resource Curation**: Curated links to official documentation, tutorials, and open-source references.
+- **Progress Tracking**: Interactive task checklists with persistent state tracking completed learning tasks.
+- **Multi-Roadmap Carousel**: Swipeable horizontal deck tracking multiple target job applications ($1:N$) with individual ATS match score badges, time commitments, and isolated task completion lists.
+- **Day / Week Study Pacing**: Dynamic budget toggling between total weekly hours (e.g. 5h/wk) and daily study targets (~1.0h/day).
+- **Safe Cancellation with Confirmation**: Frosted Glass modal safeguard requiring explicit user confirmation before clearing an unwanted target roadmap and its task history.
 
 ### 4.5 Module 5: ATS & Resume Tailoring
 
