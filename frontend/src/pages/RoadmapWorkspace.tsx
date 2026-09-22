@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AuthModal } from '../components/auth/AuthModal';
+import { UserNavPill } from '../components/auth/UserNavPill';
 import { CancelRoadmapModal } from '../components/roadmap/CancelRoadmapModal';
 import { PriorityBadgesOverview } from '../components/roadmap/PriorityBadgesOverview';
 import { RoadmapCarouselHeader } from '../components/roadmap/RoadmapCarouselHeader';
@@ -8,6 +8,8 @@ import { WeeklyTimelineStepper } from '../components/roadmap/WeeklyTimelineStepp
 import { useAuth } from '../context/AuthContext';
 import { apiService, parseApiError } from '../services/api';
 import { GapAnalysisResponse, TrackedRoadmapItem } from '../types';
+import { resolveRoadmapResource, sanitizeTrackedRoadmaps } from '../utils/roadmapLinkResolver';
+import { storageAdapter } from '../utils/storageAdapter';
 
 interface RoadmapWorkspaceProps {
   onBackToGapAnalysis: () => void;
@@ -26,19 +28,17 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
   analysisData,
   jobTitle,
 }) => {
-  const [weeklyHours, setWeeklyHours] = useState<number>(5);
-  const [durationWeeks, setDurationWeeks] = useState<number>(4);
+  const { user } = useAuth();
+  const isAuth = Boolean(user);
+  const prevUserIdRef = React.useRef<string | null | undefined>(user?.id);
 
-  // Load tracked roadmaps from localStorage, strictly filtering out any fake seeds
+  // Load tracked roadmaps from storageAdapter, strictly filtering out any fake seeds
   const [roadmaps, setRoadmaps] = useState<TrackedRoadmapItem[]>(() => {
     try {
-      const saved = localStorage.getItem('career_compass_saved_roadmaps');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const realOnly = parsed.filter((r) => !DUMMY_SEED_IDS.includes(r.id));
-          return realOnly;
-        }
+      const saved = storageAdapter.getSavedRoadmaps(isAuth, user?.id);
+      if (Array.isArray(saved)) {
+        const realOnly = saved.filter((r) => !DUMMY_SEED_IDS.includes(r.id));
+        return sanitizeTrackedRoadmaps(realOnly);
       }
     } catch (err) {
       console.warn('Could not parse saved roadmaps:', err);
@@ -49,7 +49,7 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
   // Track active roadmap ID
   const [activeRoadmapId, setActiveRoadmapId] = useState<string>(() => {
     try {
-      const savedActive = localStorage.getItem('career_compass_active_roadmap_id');
+      const savedActive = storageAdapter.getActiveRoadmapId(isAuth, user?.id);
       if (savedActive && !DUMMY_SEED_IDS.includes(savedActive)) return savedActive;
     } catch {}
     return roadmaps[0]?.id || '';
@@ -58,10 +58,6 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
   const [paceMode, setPaceMode] = useState<'week' | 'day'>('week');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Authentication & Cloud Sync
-  const { user, isGuest, logout } = useAuth();
-  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
 
   // Cancellation Modal state
   const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false);
@@ -151,16 +147,13 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
     setActiveRoadmapId(analysisId);
 
     // Call backend API (Groq) to generate real milestones only if not already present
-    const saved = localStorage.getItem('career_compass_saved_roadmaps');
+    const saved = storageAdapter.getSavedRoadmaps(isAuth, user?.id);
     let hasMilestones = false;
-    if (saved) {
-      try {
-        const parsed: TrackedRoadmapItem[] = JSON.parse(saved);
-        const match = parsed.find((r) => r.id === analysisId);
-        if (match?.roadmap_data?.weekly_milestones && match.roadmap_data.weekly_milestones.length > 0) {
-          hasMilestones = true;
-        }
-      } catch {}
+    if (Array.isArray(saved)) {
+      const match = saved.find((r) => r.id === analysisId);
+      if (match?.roadmap_data?.weekly_milestones && match.roadmap_data.weekly_milestones.length > 0) {
+        hasMilestones = true;
+      }
     }
 
     if (!hasMilestones) {
@@ -168,61 +161,56 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
     }
   }, [analysisId, analysisData, jobTitle, fetchBackendRoadmap]);
 
-  // Sync with Supabase cloud when user is logged in
+  // Synchronize roadmaps on account switch & persist scoped to active user
   useEffect(() => {
-    if (user?.id) {
-      apiService
-        .getUserRoadmaps(user.id)
-        .then((cloudRoadmaps) => {
-          const validCloud = Array.isArray(cloudRoadmaps)
-            ? cloudRoadmaps.filter((r) => !DUMMY_SEED_IDS.includes(r.id))
-            : [];
+    if (prevUserIdRef.current !== user?.id) {
+      prevUserIdRef.current = user?.id;
+      // Account changed: reload roadmaps scoped to this user
+      const userRoadmaps = storageAdapter.getSavedRoadmaps(isAuth, user?.id);
+      const realOnly = userRoadmaps.filter((r) => !DUMMY_SEED_IDS.includes(r.id));
+      const sanitized = sanitizeTrackedRoadmaps(realOnly);
+      setRoadmaps(sanitized);
 
-          if (validCloud.length > 0) {
-            setRoadmaps(validCloud);
-            setActiveRoadmapId(validCloud[0].id);
-          } else if (roadmaps.length > 0) {
-            // User just signed up and has offline roadmaps: sync them to Supabase!
-            roadmaps.forEach((rm) => {
-              if (!DUMMY_SEED_IDS.includes(rm.id)) {
-                apiService.saveRoadmap(rm, user.id).catch((err) => {
-                  console.warn('Could not sync local roadmap to Supabase:', err);
-                });
-              }
-            });
-          }
-        })
-        .catch((err) => {
-          console.warn('Could not sync cloud roadmaps:', err);
-          if (roadmaps.length > 0) {
-            roadmaps.forEach((rm) => {
-              if (!DUMMY_SEED_IDS.includes(rm.id)) {
-                apiService.saveRoadmap(rm, user.id).catch(() => {});
-              }
-            });
-          }
-        });
+      const userActiveId = storageAdapter.getActiveRoadmapId(isAuth, user?.id);
+      setActiveRoadmapId(userActiveId || sanitized[0]?.id || '');
+
+      // If user is authenticated, sync their cloud roadmaps from backend
+      if (user?.id) {
+        apiService
+          .getUserRoadmaps(user.id)
+          .then((cloudRoadmaps) => {
+            const validCloud = Array.isArray(cloudRoadmaps)
+              ? cloudRoadmaps.filter((r) => !DUMMY_SEED_IDS.includes(r.id))
+              : [];
+
+            if (validCloud.length > 0) {
+              setRoadmaps(validCloud);
+              setActiveRoadmapId(validCloud[0].id);
+              storageAdapter.setSavedRoadmaps(true, validCloud, user.id);
+              storageAdapter.setActiveRoadmapId(true, validCloud[0].id, user.id);
+            }
+          })
+          .catch((err) => {
+            console.warn('Could not sync cloud roadmaps:', err);
+          });
+      }
+      return;
     }
-  }, [user?.id]);
 
-  // Persist roadmaps array whenever it changes
-  useEffect(() => {
+    // Persist active user roadmaps
     try {
       const realOnly = roadmaps.filter((r) => !DUMMY_SEED_IDS.includes(r.id));
-      localStorage.setItem('career_compass_saved_roadmaps', JSON.stringify(realOnly));
+      storageAdapter.setSavedRoadmaps(isAuth, realOnly, user?.id);
     } catch (err) {
       console.warn('Could not persist roadmaps array:', err);
     }
-  }, [roadmaps]);
 
-  // Persist active roadmap ID
-  useEffect(() => {
     if (activeRoadmapId && !DUMMY_SEED_IDS.includes(activeRoadmapId)) {
       try {
-        localStorage.setItem('career_compass_active_roadmap_id', activeRoadmapId);
+        storageAdapter.setActiveRoadmapId(isAuth, activeRoadmapId, user?.id);
       } catch {}
     }
-  }, [activeRoadmapId]);
+  }, [user?.id, isAuth, roadmaps, activeRoadmapId]);
 
   // Toggle checkbox for a task on the active roadmap
   const handleToggleTask = (taskId: string) => {
@@ -340,8 +328,15 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
         (m) =>
           `### Week ${m.week}: ${m.focus_skill} (${m.target_hours} hrs)\n` +
           m.tasks.map((t) => `- [ ] ${t}`).join('\n') +
-          `\nResources:\n` +
-          m.resources.map((r) => `- ${r}`).join('\n')
+          (() => {
+            const valid = (m.resources || [])
+              .map((r) => resolveRoadmapResource(r, m.focus_skill))
+              .filter((res): res is NonNullable<typeof res> => Boolean(res));
+            return valid.length > 0
+              ? `\nVerified Documentation & Resources:\n` +
+                  valid.map((res) => `- [${res.label}](${res.url})`).join('\n')
+              : '';
+          })()
       ),
     ];
     navigator.clipboard.writeText(lines.join('\n'));
@@ -399,33 +394,8 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
 
           {/* Top Actions */}
           <div className="flex items-center gap-2.5">
-            {/* Cloud Sync / Auth State Pill */}
-            {isGuest ? (
-              <button
-                type="button"
-                onClick={() => setAuthModalOpen(true)}
-                className="glass-pill px-3.5 py-1.5 rounded-full text-xs text-white/90 hover:text-white hover:bg-white/20 transition-all flex items-center gap-1.5 cursor-pointer border border-cyan-400/40 shadow-sm"
-              >
-                <span>☁️</span>
-                <span className="hidden sm:inline">Sign In to Cloud Sync</span>
-                <span className="sm:hidden">Sync</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 glass-pill px-3 py-1.5 rounded-full border border-emerald-400/40">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[11px] text-emerald-300 font-medium truncate max-w-[90px] sm:max-w-[130px]">
-                  {user?.name}
-                </span>
-                <button
-                  type="button"
-                  onClick={logout}
-                  title="Sign Out"
-                  className="text-[11px] text-white/40 hover:text-rose-300 ml-1 cursor-pointer transition"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
+            {/* Unified User Profile & Cloud Sync Pill */}
+            <UserNavPill />
 
             <button
               type="button"
@@ -630,12 +600,6 @@ export const RoadmapWorkspace: React.FC<RoadmapWorkspaceProps> = ({
         companyName={targetCancelItem?.company_name || ''}
         onClose={handleCloseCancelModal}
         onConfirm={handleConfirmCancelRoadmap}
-      />
-
-      {/* ================= SUPABASE AUTH MODAL ================= */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
       />
     </div>
   );

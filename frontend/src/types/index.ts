@@ -1,4 +1,5 @@
 export interface UserProfileInput {
+  user_id?: string;
   full_name: string;
   education_degree?: string;
   institution?: string;
@@ -20,6 +21,7 @@ export interface ExtractedEducation {
   degree?: string;
   institution?: string;
   year?: number;
+  graduation_year?: number;
 }
 
 export interface ExtractedWorkExperience {

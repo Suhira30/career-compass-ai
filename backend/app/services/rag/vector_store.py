@@ -87,9 +87,10 @@ def get_vector_store():
         raise RuntimeError(f"Vector store initialization error: {exc}") from exc
 
 
-def similarity_search_with_score(query: str, k: int = 4) -> List[tuple[Document, float]]:
+def similarity_search_with_score(query: str, k: int = 5) -> List[tuple[Document, float]]:
     """
     Performs similarity search against the vector store returning top-k matching documents with scores.
+    Adopts K=5 per ADR-08 / EXP-RAG-01 benchmark winner (3A-K5).
     """
     try:
         vs = get_vector_store()
@@ -99,18 +100,35 @@ def similarity_search_with_score(query: str, k: int = 4) -> List[tuple[Document,
         return []
 
 
-def search_relevant_context(query: str, k: int = 3) -> str:
+def search_relevant_context(query: str, k: int = 5) -> str:
     """
     Convenience method returning joined text context string from top-k retrieved documents.
+    Implements Parent-Child Retrieval (3A-K5):
+    - Uses Child vectors in Pinecone for high-precision semantic matching.
+    - Resolves and injects the rich 'parent_content' (1500 chars) to downstream LLM.
+    - Deduplicates identical parent sections if multiple children from the same parent match.
     """
     results = similarity_search_with_score(query, k=k)
     if not results:
         return ""
     
     docs_text = []
+    seen_parents = set()
+
     for idx, (doc, score) in enumerate(results, 1):
+        parent_id = doc.metadata.get("parent_id")
+        
+        # Deduplicate identical parents
+        if parent_id and parent_id in seen_parents:
+            continue
+        if parent_id:
+            seen_parents.add(parent_id)
+
+        # Retrieve rich parent context; fall back to child page_content if not present
+        content = doc.metadata.get("parent_content", doc.page_content)
         source = doc.metadata.get("source", "Knowledge Base")
-        docs_text.append(f"[Snippet {idx} | Source: {source}]\n{doc.page_content}")
+        docs_text.append(f"[Snippet {len(docs_text) + 1} | Source: {source}]\n{content.strip()}")
     
     return "\n\n".join(docs_text)
+
 

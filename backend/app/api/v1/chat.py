@@ -10,6 +10,7 @@ from app.services.rag.chat_chain import (
     stream_chat_chain,
     format_candidate_context,
 )
+from app.core.llm_provider_key import LLMQuotaExhaustedException
 from app.api.v1.analysis import analysis_db
 import uuid
 
@@ -55,13 +56,18 @@ async def chat_message(request: ChatMessageInput):
     if request.stream:
         async def event_generator():
             full_response_chunks = []
-            async for token in stream_chat_chain(request.message, context_str):
-                full_response_chunks.append(token)
-                yield token
-            
-            # Save complete response to session history
-            complete_text = "".join(full_response_chunks)
-            session_history.append({"role": "assistant", "content": complete_text})
+            try:
+                async for token in stream_chat_chain(request.message, context_str):
+                    full_response_chunks.append(token)
+                    yield token
+                
+                # Save complete response to session history
+                complete_text = "".join(full_response_chunks)
+                session_history.append({"role": "assistant", "content": complete_text})
+            except LLMQuotaExhaustedException as q_exc:
+                err_msg = q_exc.detail.get("message", "API quota exceeded. Please provide a new or refreshed Gemini API key.")
+                yield f"\n\n[ERROR_LLM_QUOTA_EXHAUSTED]: {err_msg}\n\n"
+                return
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 

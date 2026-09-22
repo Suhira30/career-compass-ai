@@ -9,6 +9,11 @@ import logging
 from typing import List, AsyncGenerator, Dict, Any, Optional
 from langchain_core.prompts import ChatPromptTemplate
 from app.core import settings
+from app.core.llm_provider_key import (
+    get_active_gemini_key,
+    is_quota_exhausted_error,
+    LLMQuotaExhaustedException,
+)
 from app.models.chat import ChatMessageResponse
 from app.models.analysis import GapAnalysisResponse
 from app.services.rag.vector_store import search_relevant_context
@@ -38,6 +43,32 @@ def _get_chat_prompt_template() -> ChatPromptTemplate:
     ])
 
 
+def condense_query_with_history(
+    user_message: str,
+    session_history: Optional[List[Dict[str, str]]] = None,
+) -> str:
+    """
+    Condenses follow-up queries that reference previous dialogue turns (e.g. 'tell me more about that',
+    'how to prepare for that interview question?') by combining with the prior turn's topic.
+    """
+    if not session_history:
+        return user_message
+
+    words = set(user_message.lower().split())
+    deictic_words = {"that", "this", "it", "more", "why", "how", "what", "drill", "example", "question"}
+    
+    # If the query is short or uses deictic referencing, enrich search with recent turn context
+    if len(words) <= 7 or words.intersection(deictic_words):
+        # Scan backwards for the most recent message with content
+        for prev_turn in reversed(session_history):
+            content = prev_turn.get("content", "").strip()
+            if content:
+                snippet = content[:120].replace("\n", " ")
+                return f"{user_message} (focus: {snippet})"
+
+    return user_message
+
+
 def format_candidate_context(
     analysis: Optional[GapAnalysisResponse] = None,
     session_history: Optional[List[Dict[str, str]]] = None,
@@ -56,12 +87,13 @@ def format_candidate_context(
         parts.append(f"Partially Available Skills: {', '.join(analysis.skill_matrix.partially_available_skills) if analysis.skill_matrix.partially_available_skills else 'None'}")
         parts.append(f"Recommended Improvements: {', '.join(analysis.assessment.recommended_improvements)}")
 
-    # 2. RAG Vector Search Knowledge Base Context Retrieval
+    # 2. RAG Vector Search Knowledge Base Context Retrieval (Parent-Child 3A-K5)
     if user_message:
         try:
-            kb_context = search_relevant_context(user_message, k=3)
+            retrieval_query = condense_query_with_history(user_message, session_history)
+            kb_context = search_relevant_context(retrieval_query, k=5)
             if kb_context:
-                parts.append(f"\nRetrieved Domain Knowledge Base Context:\n{kb_context}")
+                parts.append(f"\nRetrieved Domain Knowledge Base Context (Parent-Child 3A-K5):\n{kb_context}")
         except Exception as exc:
             logger.warning(f"RAG vector search skipped/failed: {exc}")
 
@@ -102,11 +134,33 @@ def invoke_chat_chain(
     session_id: str,
 ) -> ChatMessageResponse:
     """
-    Synchronous LCEL RAG Chat Chain execution with multi-provider fallback (Groq -> Gemini -> OpenAI).
+    Synchronous LCEL RAG Chat Chain execution with multi-provider fallback (Gemini -> Groq -> OpenAI).
     """
     prompt_template = _get_chat_prompt_template()
 
-    # 1. Primary: Groq
+    # 1. Primary: Gemini
+    active_gemini_key = get_active_gemini_key()
+    if active_gemini_key:
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(google_api_key=active_gemini_key, model=settings.GEMINI_MODEL, temperature=0.3)
+            chain = prompt_template | llm
+            res = chain.invoke({"context_str": context_str, "user_message": user_message})
+            text = res.content if hasattr(res, "content") else str(res)
+            return ChatMessageResponse(
+                session_id=session_id,
+                response=text,
+                suggested_followups=generate_suggested_followups(user_message, text),
+            )
+        except Exception as exc:
+            logger.warning(f"Gemini Chat failed: {exc}")
+            if is_quota_exhausted_error(exc):
+                raise LLMQuotaExhaustedException(
+                    message="Gemini API quota or rate limit reached. Please supply a new or refreshed API key to continue chatting.",
+                    provider="gemini",
+                )
+
+    # 2. Fallback 1: Groq
     if settings.GROQ_API_KEY:
         try:
             from langchain_groq import ChatGroq
@@ -121,22 +175,8 @@ def invoke_chat_chain(
             )
         except Exception as exc:
             logger.warning(f"Groq Chat failed: {exc}")
-
-    # 2. Fallback 1: Gemini
-    if settings.GEMINI_API_KEY:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            llm = ChatGoogleGenerativeAI(google_api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL, temperature=0.3)
-            chain = prompt_template | llm
-            res = chain.invoke({"context_str": context_str, "user_message": user_message})
-            text = res.content if hasattr(res, "content") else str(res)
-            return ChatMessageResponse(
-                session_id=session_id,
-                response=text,
-                suggested_followups=generate_suggested_followups(user_message, text),
-            )
-        except Exception as exc:
-            logger.warning(f"Gemini Chat failed: {exc}")
+            if is_quota_exhausted_error(exc) and not settings.OPENAI_API_KEY:
+                raise LLMQuotaExhaustedException(provider="groq")
 
     # 3. Fallback 2: OpenAI
     if settings.OPENAI_API_KEY:
@@ -153,6 +193,8 @@ def invoke_chat_chain(
             )
         except Exception as exc:
             logger.warning(f"OpenAI Chat failed: {exc}")
+            if is_quota_exhausted_error(exc):
+                raise LLMQuotaExhaustedException(provider="openai")
 
     # Final Fallback
     fallback_text = (
@@ -176,7 +218,27 @@ async def stream_chat_chain(
     """
     prompt_template = _get_chat_prompt_template()
 
-    # 1. Primary: Groq Streaming
+    # 1. Primary: Gemini Streaming
+    active_gemini_key = get_active_gemini_key()
+    if active_gemini_key:
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(google_api_key=active_gemini_key, model=settings.GEMINI_MODEL, temperature=0.3, streaming=True)
+            chain = prompt_template | llm
+            async for chunk in chain.astream({"context_str": context_str, "user_message": user_message}):
+                content = chunk.content if hasattr(chunk, "content") else str(chunk)
+                if content:
+                    yield content
+            return
+        except Exception as exc:
+            logger.warning(f"Gemini Streaming failed: {exc}")
+            if is_quota_exhausted_error(exc):
+                raise LLMQuotaExhaustedException(
+                    message="Gemini API quota or rate limit reached. Please supply a new or refreshed API key to continue chatting.",
+                    provider="gemini",
+                )
+
+    # 2. Fallback 1: Groq Streaming
     if settings.GROQ_API_KEY:
         try:
             from langchain_groq import ChatGroq
@@ -189,20 +251,8 @@ async def stream_chat_chain(
             return
         except Exception as exc:
             logger.warning(f"Groq Streaming failed: {exc}")
-
-    # 2. Fallback 1: Gemini Streaming
-    if settings.GEMINI_API_KEY:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            llm = ChatGoogleGenerativeAI(google_api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL, temperature=0.3, streaming=True)
-            chain = prompt_template | llm
-            async for chunk in chain.astream({"context_str": context_str, "user_message": user_message}):
-                content = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if content:
-                    yield content
-            return
-        except Exception as exc:
-            logger.warning(f"Gemini Streaming failed: {exc}")
+            if is_quota_exhausted_error(exc):
+                raise LLMQuotaExhaustedException(provider="groq")
 
     # Fallback non-streaming text yield
     res = invoke_chat_chain(user_message, context_str, "temp_sess")

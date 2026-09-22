@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
+import { UserNavPill } from '../components/auth/UserNavPill';
 import { GlassMenu } from '../components/landing/GlassMenu';
 
 interface LandingPageProps {
   onStartAnalysis?: (role?: string, level?: string, file?: File | null) => void;
   onNavigateToGap?: () => void;
+  onNavigateToRoadmap?: () => void;
+  onNavigateToCopilot?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onStartAnalysis, onNavigateToGap }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({
+  onStartAnalysis,
+  onNavigateToGap,
+  onNavigateToRoadmap,
+  onNavigateToCopilot,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [targetRole, setTargetRole] = useState('Senior AI Engineer');
   const [experienceLevel, setExperienceLevel] = useState('Mid-Level (2–4 yrs)');
@@ -66,13 +74,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAnalysis, onNav
             <div className="hidden md:flex items-center gap-7 text-xs font-medium text-white/80">
               <a href="#home" className="text-white hover:text-cyan-300 transition-colors">Home</a>
               <a href="#steps" className="hover:text-cyan-300 transition-colors">How It Works</a>
-              <a href="#gap" className="hover:text-cyan-300 transition-colors">Vector Gap Space</a>
-              <a href="#roadmap" className="hover:text-cyan-300 transition-colors">Upskill Path</a>
-              <a href="#advisor" className="hover:text-cyan-300 transition-colors">AI Advisor</a>
+              <button
+                type="button"
+                onClick={onNavigateToGap}
+                className="hover:text-cyan-300 transition-colors cursor-pointer text-xs font-medium"
+              >
+                Gap Analysis
+              </button>
+              <button
+                type="button"
+                onClick={onNavigateToRoadmap}
+                className="hover:text-cyan-300 transition-colors cursor-pointer text-xs font-medium"
+              >
+                Learning Roadmap
+              </button>
+              <button
+                type="button"
+                onClick={onNavigateToCopilot}
+                className="hover:text-cyan-300 transition-colors cursor-pointer text-xs font-medium"
+              >
+                Career Copilot
+              </button>
             </div>
 
             {/* Right Action Button & Glass Menu */}
             <div className="flex items-center gap-3 relative">
+              <UserNavPill />
+
               <button
                 type="button"
                 onClick={handleQuickAnalyze}
@@ -311,88 +339,158 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAnalysis, onNav
       </section>
 
 
-      {/* ================= SECTION 3: APPLICATION CAPABILITIES (INTERLOCKING CARDS) ================= */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-8 py-16 space-y-12 border-t border-[#E2DEEA]">
+      {/* ================= SECTION 3: APPLICATION CAPABILITIES (UNIFIED 2-COLUMN QUANTUM GLASS GRID) ================= */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-8 py-20 space-y-12 border-t border-[#E2DEEA]">
         
-        <div className="text-center space-y-2">
-          <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#121624]">
+        <div className="text-center space-y-2.5 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25">
+            <span>✦ Core Intelligence Platform</span>
+          </div>
+          <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#121624]">
             Core Application Capabilities
           </h3>
-          <p className="text-xs sm:text-sm text-[#61687E] max-w-xl mx-auto">
-            Intelligent tools designed to analyze your background, identify skill gaps, and accelerate your career path.
+          <p className="text-xs sm:text-sm text-[#61687E] leading-relaxed">
+            Intelligent, vector-grounded tools designed to analyze your background, pinpoint skill gaps, and accelerate your career progression.
           </p>
         </div>
 
-        {/* CARD LAYOUT 1: Soft Muted Violet Prism Card */}
-        <div id="gap" className="flex flex-col lg:flex-row items-center gap-6 scroll-mt-12">
-          <div className="flex-1 bg-gradient-to-br from-[#5E689B] to-[#485282] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row gap-6 items-center border border-indigo-300/20">
-            <div className="w-full md:w-1/2 h-52 rounded-2xl overflow-hidden relative shadow-md">
-              <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" alt="Skill Vector Space" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-indigo-950/25" />
-            </div>
+        {/* 2-COLUMN EQUAL-WIDTH GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          
+          {/* Capability Card 1: Resume & Job Match Analysis */}
+          <div 
+            id="gap"
+            className="group relative rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-[#131b2e] via-[#0d1424] to-[#080c16] text-white border border-cyan-500/20 hover:border-cyan-400/50"
+          >
+            {/* Subtle glowing ambient accent */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/20 transition-all" />
 
-            <div className="w-full md:w-1/2 space-y-3">
-              <h4 className="text-lg font-bold tracking-wide">
-                Automated Resume & Job Match Analysis
-              </h4>
-              <p className="text-xs text-indigo-100/90 leading-relaxed font-light">
-                Upload your resume and target job description to instantly calculate your ATS compatibility score, extract core technical competencies, and pinpoint critical missing skills before applying.
-              </p>
-              <div className="pt-2 border-t border-indigo-300/30 flex items-center justify-between text-[11px] text-indigo-200/90 font-mono">
-                <span>Critical Gaps • Secondary Gaps • Core Strengths</span>
+            <div className="space-y-6 relative z-10">
+              {/* Visual Mockup Container */}
+              <div className="w-full h-52 sm:h-56 rounded-2xl overflow-hidden relative shadow-lg border border-white/10 group-hover:border-white/20 transition-all">
+                <img 
+                  src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" 
+                  alt="Skill Vector Space" 
+                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/30 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-mono font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 backdrop-blur-md">
+                    Semantic Gap Engine
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-300">
+                    Cosine Similarity &bull; ATS
+                  </span>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="space-y-2.5">
+                <h4 className="text-xl font-bold tracking-tight text-white group-hover:text-cyan-300 transition-colors">
+                  Automated Resume & Job Match Analysis
+                </h4>
+                <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-light">
+                  Upload your resume and target job description to instantly calculate your ATS compatibility score, extract core technical competencies, and pinpoint critical missing skills before applying.
+                </p>
+              </div>
+
+              {/* Badges */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-white/5 border border-white/10 text-zinc-300">
+                  Critical Gaps
+                </span>
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-white/5 border border-white/10 text-zinc-300">
+                  Secondary Gaps
+                </span>
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
+                  ATS Compatibility Score
+                </span>
               </div>
             </div>
+
+            {/* Integrated Action Bottom Bar */}
+            <div className="mt-8 pt-5 border-t border-white/10 flex items-center justify-between relative z-10">
+              <span className="text-xs text-zinc-400 font-medium">
+                Instant candidate vector audit
+              </span>
+              <button
+                type="button"
+                onClick={handleQuickAnalyze}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 text-zinc-950 text-xs font-bold shadow-lg hover:shadow-cyan-500/30 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>View Report</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
           </div>
 
-          <div className="w-full lg:w-72 space-y-4 text-center lg:text-left p-2">
-            <p className="text-xs text-[#2A3045] font-medium leading-relaxed">
-              You can view detailed match scores, skill gap breakdowns, and ATS compatibility reports on our page.
-            </p>
-            <button
-              type="button"
-              onClick={handleQuickAnalyze}
-              className="px-6 py-2.5 rounded-full bg-[#DFDBE8] hover:bg-[#D5D0E0] text-xs font-semibold text-[#121624] shadow-sm transition-all border border-[#CCC6D9]"
-            >
-              View Report
-            </button>
-          </div>
-        </div>
+          {/* Capability Card 2: Roadmaps & AI Career Copilot */}
+          <div 
+            id="roadmap"
+            className="group relative rounded-3xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-[#131b2e] via-[#0d1424] to-[#080c16] text-white border border-emerald-500/20 hover:border-emerald-400/50"
+          >
+            {/* Subtle glowing ambient accent */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
 
-        {/* CARD LAYOUT 2: Deep Dark Obsidian Card */}
-        <div id="roadmap" className="flex flex-col lg:flex-row-reverse items-center gap-6 scroll-mt-12">
-          <div className="flex-1 bg-gradient-to-br from-[#121727] to-[#0A0D17] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row gap-6 items-center border border-cyan-500/20">
-            <div className="w-full md:w-1/2 space-y-4">
-              <h4 className="text-lg font-bold tracking-wide text-cyan-50">
-                Personalized Learning Roadmaps & AI Career Coaching
-              </h4>
-              <p className="text-xs text-cyan-100/75 leading-relaxed font-light">
-                Get a week-by-week upskilling roadmap matching your available weekly hours, paired with real-time AI coaching for STAR interview prep, salary benchmarks, cover letters, and cold recruiter emails.
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <button type="button" className="px-3.5 py-1.5 rounded-full glass-pill-dark text-[11px] text-cyan-300 hover:bg-white/10 transition-all border border-cyan-500/30">With Roadmap</button>
-                <span className="text-[10px] text-white/40">‹ Look for ›</span>
-                <button type="button" className="px-3.5 py-1.5 rounded-full glass-pill-dark text-[11px] text-purple-300 hover:bg-white/10 transition-all border border-purple-500/30">Cover Letter & Email</button>
+            <div className="space-y-6 relative z-10">
+              {/* Visual Mockup Container */}
+              <div className="w-full h-52 sm:h-56 rounded-2xl overflow-hidden relative shadow-lg border border-white/10 group-hover:border-white/20 transition-all">
+                <img 
+                  src="https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?q=80&w=1000&auto=format&fit=crop" 
+                  alt="AI Vector Engine" 
+                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/30 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 backdrop-blur-md">
+                    Parent-Child 3A-K5 RAG
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-300">
+                    Weekly Milestones &bull; Copilot
+                  </span>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="space-y-2.5">
+                <h4 className="text-xl font-bold tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                  Personalized Learning Roadmaps & AI Career Copilot
+                </h4>
+                <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-light">
+                  Generate customized week-by-week learning roadmaps tailored to your available weekly pace, paired with our grounded AI Copilot for STAR interview prep, salary benchmarks, and cover letter drafting.
+                </p>
+              </div>
+
+              {/* Badges */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-white/5 border border-white/10 text-zinc-300">
+                  Personalized Milestones
+                </span>
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-white/5 border border-white/10 text-zinc-300">
+                  STAR Interview Prep
+                </span>
+                <span className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
+                  Pinecone 3A-K5 Grounded
+                </span>
               </div>
             </div>
 
-            <div className="w-full md:w-1/2 h-52 rounded-2xl overflow-hidden relative shadow-md">
-              <img src="https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?q=80&w=1000&auto=format&fit=crop" alt="AI Vector Engine" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-cyan-950/20" />
+            {/* Integrated Action Bottom Bar */}
+            <div className="mt-8 pt-5 border-t border-white/10 flex items-center justify-between relative z-10">
+              <span className="text-xs text-zinc-400 font-medium">
+                Week-by-week upskilling plan
+              </span>
+              <button
+                type="button"
+                onClick={handleQuickAnalyze}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 text-zinc-950 text-xs font-bold shadow-lg hover:shadow-emerald-400/30 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Generate Roadmap</span>
+                <span>&rarr;</span>
+              </button>
             </div>
           </div>
 
-          <div className="w-full lg:w-72 space-y-4 text-center lg:text-right p-2">
-            <p className="text-xs text-[#2A3045] font-medium leading-relaxed">
-              You can generate a personalized upskilling roadmap or draft custom cover letters directly on the portal.
-            </p>
-            <button
-              type="button"
-              onClick={handleQuickAnalyze}
-              className="px-6 py-2.5 rounded-full bg-[#DFDBE8] hover:bg-[#D5D0E0] text-xs font-semibold text-[#121624] shadow-sm transition-all border border-[#CCC6D9]"
-            >
-              Generate Roadmap
-            </button>
-          </div>
         </div>
 
       </section>
@@ -436,6 +534,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAnalysis, onNav
         onNavigate={(route) => {
           if (route === 'gap' && onNavigateToGap) {
             onNavigateToGap();
+          } else if (route === 'roadmap' && onNavigateToRoadmap) {
+            onNavigateToRoadmap();
+          } else if ((route === 'advisor' || route === 'copilot') && onNavigateToCopilot) {
+            onNavigateToCopilot();
+          } else if (route === 'home') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            const el = document.getElementById(route);
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
           }
         }}
       />
