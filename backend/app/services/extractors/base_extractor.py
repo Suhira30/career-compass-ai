@@ -10,6 +10,11 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from app.core import settings
+from app.core.llm_provider_key import (
+    get_active_gemini_key,
+    is_quota_exhausted_error,
+    LLMQuotaExhaustedException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +56,12 @@ def _discover_active_gemini_models() -> List[str]:
     """Dynamically queries Google Gemini API for available chat/text generation models on this key."""
     candidates = []
     try:
+        active_key = get_active_gemini_key()
+        if not active_key:
+            return candidates
         import google.generativeai as genai
         genai.configure(api_key=settings.GEMINI_API_KEY)
+        genai.configure(api_key=active_key)
         for m in genai.list_models():
             if "generateContent" in getattr(m, "supported_generation_methods", []):
                 name = getattr(m, "name", "").replace("models/", "")
@@ -67,13 +76,30 @@ def _discover_active_gemini_models() -> List[str]:
     return candidates
 
 
+def _extract_text_from_gemini_response(response) -> str:
+    try:
+        return response.text.strip()
+    except Exception:
+        parts_text = []
+        if hasattr(response, "candidates") and response.candidates:
+            for cand in response.candidates:
+                if hasattr(cand, "content") and hasattr(cand.content, "parts"):
+                    for part in cand.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            parts_text.append(part.text)
+        if parts_text:
+            return "".join(parts_text).strip()
+        raise
+
+
 def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Type[T]) -> T:
-    if not settings.GEMINI_API_KEY:
+    active_key = get_active_gemini_key()
+    if not active_key:
         raise ValueError("GEMINI_API_KEY is not configured.")
 
     import google.generativeai as genai
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    genai.configure(api_key=active_key)
 
     # Phase 1: Fast Path (Read prioritized candidate models from settings with zero extra discovery latency)
     gemini_candidates = [settings.GEMINI_MODEL] + [
@@ -96,7 +122,7 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
                 generation_config={"response_mime_type": "application/json", "temperature": 0.1},
             )
             response = model.generate_content(prompt_str)
-            raw_text = response.text.strip()
+            raw_text = _extract_text_from_gemini_response(response)
             if raw_text.startswith("```"):
                 raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             data_dict = json.loads(raw_text)
@@ -105,6 +131,11 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
             return validated
         except Exception as exc:
             last_err = exc
+            if is_quota_exhausted_error(exc):
+                logger.warning(f"Gemini API quota exhausted on candidate '{model_name}': {exc}. Halting to prompt for user API key.")
+                raise LLMQuotaExhaustedException(
+                    message="Your Gemini API quota has been exhausted. Please supply your own free Gemini API key to proceed."
+                ) from exc
             logger.warning(f"Gemini candidate '{model_name}' failed: {exc}. Retrying next candidate...")
             continue
 
@@ -121,7 +152,7 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
                 generation_config={"response_mime_type": "application/json", "temperature": 0.1},
             )
             response = model.generate_content(prompt_str)
-            raw_text = response.text.strip()
+            raw_text = _extract_text_from_gemini_response(response)
             if raw_text.startswith("```"):
                 raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             data_dict = json.loads(raw_text)
@@ -130,6 +161,11 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
             return validated
         except Exception as exc:
             last_err = exc
+            if is_quota_exhausted_error(exc):
+                logger.warning(f"Discovered Gemini candidate '{model_name}' hit rate limit: {exc}")
+                raise LLMQuotaExhaustedException(
+                    message="Your Gemini API quota has been exhausted. Please supply your own free Gemini API key to proceed."
+                ) from exc
             logger.warning(f"Discovered Gemini candidate '{model_name}' failed: {exc}")
             continue
 
@@ -216,10 +252,23 @@ def extract_structured_data(
                 return _try_groq_extraction(system_prompt, raw_text, schema_class)
             elif provider == "openai":
                 return _try_openai_extraction(system_prompt, raw_text, schema_class)
+        except LLMQuotaExhaustedException:
+            # Immediate BYOK trigger: Prompt user for their free Gemini key
+            raise
         except Exception as exc:
+            if is_quota_exhausted_error(exc):
+                raise LLMQuotaExhaustedException(
+                    message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
+                ) from exc
             err_msg = f"{provider.capitalize()} failed: {str(exc) or repr(exc)}"
             logger.warning(f"{task_name} - {err_msg}")
             errors.append(err_msg)
+
+    # If any failure was due to rate limits or credit exhaustion, trigger BYOK modal
+    if any(is_quota_exhausted_error(Exception(e)) for e in errors):
+        raise LLMQuotaExhaustedException(
+            message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
+        )
 
     full_error_details = " | ".join(errors)
     raise HTTPException(

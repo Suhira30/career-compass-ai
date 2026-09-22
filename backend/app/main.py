@@ -1,11 +1,14 @@
-"""
-Career Compass AI — FastAPI Main Application Entry Point
-"""
+import warnings
+# Silence non-breaking Google library Python 3.9 EOL FutureWarnings in terminal output
+warnings.filterwarnings("ignore", category=FutureWarning, module="google")
+warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import time
 from app.core import settings
+from app.core.llm_provider_key import set_request_gemini_key, LLMQuotaExhaustedException
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,6 +27,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def extract_client_api_key_middleware(request: Request, call_next):
+    """
+    Extracts optional client-provided Gemini API key from X-Gemini-API-Key header.
+    Sets it into request-scoped context variable for downstream LLM services.
+    """
+    client_key = request.headers.get("x-gemini-api-key") or request.headers.get("X-Gemini-API-Key")
+    set_request_gemini_key(client_key)
+    response = await call_next(request)
+    return response
+
+
+@app.exception_handler(LLMQuotaExhaustedException)
+async def llm_quota_exception_handler(request: Request, exc: LLMQuotaExhaustedException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
 
 
 @app.get("/", status_code=status.HTTP_200_OK, tags=["System Health"])

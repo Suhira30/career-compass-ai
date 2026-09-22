@@ -7,6 +7,11 @@ from typing import Tuple, List
 from fastapi import HTTPException, status
 from langchain_core.prompts import ChatPromptTemplate
 from app.core import settings
+from app.core.llm_provider_key import (
+    get_active_gemini_key,
+    is_quota_exhausted_error,
+    LLMQuotaExhaustedException,
+)
 from app.models.analysis import SkillMatrix, QualitativeAssessment
 from app.models.profile import UserProfileDetail
 from app.models.job import ExtractedJobData
@@ -148,13 +153,30 @@ def _try_groq_lcel(summary_text: str) -> QualitativeAssessment:
     raise last_err or RuntimeError("All Groq candidates failed in skill matcher.")
 
 
+def _extract_text_from_gemini_response(response) -> str:
+    try:
+        return response.text.strip()
+    except Exception:
+        parts_text = []
+        if hasattr(response, "candidates") and response.candidates:
+            for cand in response.candidates:
+                if hasattr(cand, "content") and hasattr(cand.content, "parts"):
+                    for part in cand.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            parts_text.append(part.text)
+        if parts_text:
+            return "".join(parts_text).strip()
+        raise
+
+
 def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
-    if not settings.GEMINI_API_KEY:
+    active_key = get_active_gemini_key()
+    if not active_key:
         raise ValueError("GEMINI_API_KEY is missing")
 
     import google.generativeai as genai
     import json
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    genai.configure(api_key=active_key)
 
     models_to_try = [settings.GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
     models_to_try = list(dict.fromkeys([m for m in models_to_try if m]))
@@ -165,7 +187,7 @@ def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
         try:
             model = genai.GenerativeModel(gm, generation_config={"response_mime_type": "application/json", "temperature": 0.1})
             response = model.generate_content(prompt_str)
-            raw = response.text.strip()
+            raw = _extract_text_from_gemini_response(response)
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             return QualitativeAssessment.model_validate(json.loads(raw))
@@ -221,6 +243,7 @@ Overall Readiness: {category} ({score}%)
 
     # Multi-provider LCEL Runnable Chain Fallback based on configured LLM_PROVIDER
     providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
+    errors = []
     for p in providers:
         try:
             if p == "gemini":
@@ -231,6 +254,12 @@ Overall Readiness: {category} ({score}%)
                 return _try_openai_lcel(summary_text)
         except Exception as exc:
             logger.warning(f"{p.capitalize()} LCEL chain assessment failed: {exc}")
+            errors.append(exc)
+
+    if any(is_quota_exhausted_error(e) for e in errors):
+        raise LLMQuotaExhaustedException(
+            message="AI model quota for skill gap analysis is exhausted. Please supply your own free Gemini API key to proceed."
+        )
 
     # Fallback heuristic assessment if LLMs are offline
     return QualitativeAssessment(

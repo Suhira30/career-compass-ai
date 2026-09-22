@@ -1,11 +1,11 @@
 import axios, { AxiosError } from 'axios';
 import {
-    GapAnalysisResponse,
-    JobExtractResponse,
-    ResumeUploadResponse,
-    RoadmapGenerateResponse,
-    UserProfileDetail,
-    UserProfileInput,
+  GapAnalysisResponse,
+  JobExtractResponse,
+  ResumeUploadResponse,
+  RoadmapGenerateResponse,
+  UserProfileDetail,
+  UserProfileInput,
 } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
@@ -17,6 +17,37 @@ export const apiClient = axios.create({
   },
   timeout: 60000, // 60s timeout for LLM processing
 });
+
+// Dynamic Client API Key Injection (BYOK)
+apiClient.interceptors.request.use((config) => {
+  try {
+    const customKey = localStorage.getItem('career_compass_custom_gemini_key');
+    if (customKey && customKey.trim()) {
+      config.headers['X-Gemini-API-Key'] = customKey.trim();
+    }
+  } catch {}
+  return config;
+});
+
+// Intercept 429 Quota Exhaustion errors and trigger BYOK guidance modal
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      const data: any = error.response?.data;
+      if (status === 429 || data?.error_code === 'LLM_QUOTA_EXHAUSTED' || data?.detail?.error_code === 'LLM_QUOTA_EXHAUSTED') {
+        const msg = data?.message || data?.detail?.message || 'Shared AI service quota reached.';
+        window.dispatchEvent(
+          new CustomEvent('open-api-key-modal', {
+            detail: { message: msg },
+          })
+        );
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Centralized error response extractor
 export function parseApiError(error: unknown): string {
@@ -64,18 +95,20 @@ export const apiService = {
   },
 
   // 3. Job Description Parsing
-  async extractJobDescription(rawJobDescription: string): Promise<JobExtractResponse> {
+  async extractJobDescription(rawJobDescription: string, userId?: string | null): Promise<JobExtractResponse> {
     const response = await apiClient.post<JobExtractResponse>('/jobs/extract', {
       raw_job_description: rawJobDescription,
+      user_id: userId || undefined,
     });
     return response.data;
   },
 
   // 4. Skill Gap Analysis
-  async performGapAnalysis(profileId: string, jobId: string): Promise<GapAnalysisResponse> {
+  async performGapAnalysis(profileId: string, jobId: string, userId?: string | null): Promise<GapAnalysisResponse> {
     const response = await apiClient.post<GapAnalysisResponse>('/analysis/gap', {
       profile_id: profileId,
       job_id: jobId,
+      user_id: userId || undefined,
     });
     return response.data;
   },

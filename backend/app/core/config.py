@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     )
 
     # General Project Metadata
+    BASE_DIR: Path = BASE_DIR
     PROJECT_NAME: str = "Career Compass AI API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"

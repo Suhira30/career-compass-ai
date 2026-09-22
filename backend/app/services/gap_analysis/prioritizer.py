@@ -7,8 +7,17 @@ from typing import List, Tuple
 from fastapi import HTTPException, status
 from langchain_core.prompts import ChatPromptTemplate
 from app.core import settings
+from app.core.llm_provider_key import (
+    get_active_gemini_key,
+    is_quota_exhausted_error,
+    LLMQuotaExhaustedException,
+)
 from app.models.roadmap import PrioritizationBadges, WeeklyMilestone, RoadmapGenerateResponse
 from app.models.analysis import GapAnalysisResponse
+from app.services.gap_analysis.resource_registry import (
+    sanitize_resource_link,
+    get_canonical_resource_for_skill,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +30,7 @@ Guidelines:
 - Build a week-by-week learning plan matching exact duration: {duration_weeks} weeks.
 - Ensure target hours per week match the candidate's budget: {weekly_hours} hours/week.
 - Provide practical tasks and verified documentation link resources for each week.
+- CRITICAL RESOURCE RULE: Every item in 'resources' MUST be an authoritative, verified official documentation link (e.g. https://docs.docker.com/, https://fastapi.tiangolo.com/, https://redis.io/docs/, https://kubernetes.io/docs/, https://github.com/donnemartin/system-design-primer, https://aws.amazon.com/architecture/). NEVER hallucinate fake domains like docs.reference.org or non-existent URLs.
 """
 
 
@@ -105,13 +115,30 @@ def _try_groq_lcel(summary_text: str, weekly_hours: int, duration_weeks: int) ->
     raise last_err or RuntimeError("All Groq candidates failed in roadmap prioritizer.")
 
 
+def _extract_text_from_gemini_response(response) -> str:
+    try:
+        return response.text.strip()
+    except Exception:
+        parts_text = []
+        if hasattr(response, "candidates") and response.candidates:
+            for cand in response.candidates:
+                if hasattr(cand, "content") and hasattr(cand.content, "parts"):
+                    for part in cand.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            parts_text.append(part.text)
+        if parts_text:
+            return "".join(parts_text).strip()
+        raise
+
+
 def _try_gemini_lcel(summary_text: str, weekly_hours: int, duration_weeks: int) -> RoadmapGenerateResponse:
-    if not settings.GEMINI_API_KEY:
+    active_key = get_active_gemini_key()
+    if not active_key:
         raise ValueError("GEMINI_API_KEY is missing")
 
     import google.generativeai as genai
     import json
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    genai.configure(api_key=active_key)
 
     candidates = [settings.GEMINI_MODEL] + [
         m for m in getattr(settings, "GEMINI_CANDIDATE_MODELS", []) if m != settings.GEMINI_MODEL
@@ -124,7 +151,7 @@ def _try_gemini_lcel(summary_text: str, weekly_hours: int, duration_weeks: int) 
         try:
             model = genai.GenerativeModel(gm, generation_config={"response_mime_type": "application/json", "temperature": 0.1})
             response = model.generate_content(prompt_str)
-            raw = response.text.strip()
+            raw = _extract_text_from_gemini_response(response)
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             data_dict = json.loads(raw)
@@ -178,24 +205,49 @@ Target Duration: {duration_weeks} weeks
 Candidate Recommended Improvements: {', '.join(analysis.assessment.recommended_improvements)}
 """
 
+    def _clean_and_verify_milestones(ms: List[WeeklyMilestone]) -> List[WeeklyMilestone]:
+        cleaned = []
+        for m in ms:
+            verified_resources = []
+            focus = getattr(m, "focus_skill", "")
+            raw_resources = getattr(m, "resources", []) or []
+            for r in raw_resources:
+                cleaned_url = sanitize_resource_link(r, focus)
+                if cleaned_url and cleaned_url not in verified_resources:
+                    verified_resources.append(cleaned_url)
+            # If LLM failed to provide verified links, leave empty (don't force fake/generic links)
+            m.resources = verified_resources
+            cleaned.append(m)
+        return cleaned
+
     # Multi-provider LCEL Runnable Chain Fallback based on configured LLM_PROVIDER
     providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
+    errors = []
     for p in providers:
         try:
             if p == "gemini":
                 res = _try_gemini_lcel(summary_text, weekly_hours, duration_weeks)
                 res.prioritization_badges = badges
+                res.weekly_milestones = _clean_and_verify_milestones(res.weekly_milestones)
                 return res
             elif p == "groq":
                 res = _try_groq_lcel(summary_text, weekly_hours, duration_weeks)
                 res.prioritization_badges = badges
+                res.weekly_milestones = _clean_and_verify_milestones(res.weekly_milestones)
                 return res
             elif p == "openai":
                 res = _try_openai_lcel(summary_text, weekly_hours, duration_weeks)
                 res.prioritization_badges = badges
+                res.weekly_milestones = _clean_and_verify_milestones(res.weekly_milestones)
                 return res
         except Exception as exc:
             logger.warning(f"{p.capitalize()} roadmap chain failed: {exc}")
+            errors.append(exc)
+
+    if any(is_quota_exhausted_error(e) for e in errors):
+        raise LLMQuotaExhaustedException(
+            message="AI model quota for learning roadmap generation is exhausted. Please supply your own free Gemini API key to proceed."
+        )
 
     # Fallback heuristic milestones if all LLMs are offline
     milestones = []
@@ -211,7 +263,7 @@ Candidate Recommended Improvements: {', '.join(analysis.assessment.recommended_i
                     f"Study core concepts and documentation for {focus}",
                     f"Build hands-on practical project exercises using {focus}",
                 ],
-                resources=[f"https://docs.reference.org/{focus.lower().replace(' ', '-')}"],
+                resources=[],
             )
         )
 
@@ -219,6 +271,6 @@ Candidate Recommended Improvements: {', '.join(analysis.assessment.recommended_i
     return RoadmapGenerateResponse(
         roadmap_id=f"rdm_{uuid.uuid4().hex[:9]}",
         prioritization_badges=badges,
-        weekly_milestones=milestones,
+        weekly_milestones=_clean_and_verify_milestones(milestones),
     )
 
