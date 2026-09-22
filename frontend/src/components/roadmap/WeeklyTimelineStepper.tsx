@@ -1,5 +1,6 @@
 import React from 'react';
 import { WeeklyMilestone } from '../../types';
+import { resolveRoadmapResource } from '../../utils/roadmapLinkResolver';
 
 interface WeeklyTimelineStepperProps {
   milestones: WeeklyMilestone[];
@@ -161,33 +162,40 @@ export const WeeklyTimelineStepper: React.FC<WeeklyTimelineStepperProps> = ({
                 </div>
               </div>
 
-              {/* Verified Documentation & Learning Resources */}
-              {weekResources.length > 0 && (
-                <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-white/50 text-[11px]">Recommended Docs:</span>
-                    {weekResources.map((res, rIdx) => {
-                      const isUrl = res.startsWith('http');
-                      const label = isUrl
-                        ? res.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]
-                        : res;
+              {/* Verified Documentation & Learning Resources (Rendered ONLY if verified links exist) */}
+              {(() => {
+                const validResources = weekResources
+                  .map((res) => resolveRoadmapResource(res, milestone.focus_skill))
+                  .filter((r): r is NonNullable<typeof r> => Boolean(r && r.url));
 
-                      return (
+                if (validResources.length === 0) return null;
+
+                return (
+                  <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-white/50 text-[11px] font-medium">Verified Docs:</span>
+                      {validResources.map((resolved, rIdx) => (
                         <a
                           key={rIdx}
-                          href={isUrl ? res : `https://www.google.com/search?q=${encodeURIComponent(res)}`}
+                          href={resolved.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="glass-pill px-2.5 py-1 rounded-lg text-cyan-300 hover:text-white transition-all text-[11px] font-mono flex items-center gap-1 cursor-pointer"
+                          title={`Open ${resolved.label} in new tab`}
+                          className="glass-pill px-3 py-1.5 rounded-xl text-cyan-300 hover:text-white hover:border-cyan-400/50 bg-white/5 hover:bg-white/10 transition-all text-[11px] font-medium flex items-center gap-1.5 cursor-pointer shadow-sm group"
                         >
-                          <span>📖</span> {label} ↗
+                          <span className="text-xs group-hover:scale-110 transition-transform">📖</span>
+                          <span className="truncate max-w-[220px]">{resolved.label}</span>
+                          <span className="text-[10px] text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">↗</span>
                         </a>
-                      );
-                    })}
+                      ))}
+                    </div>
+                    <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Verified Official
+                    </span>
                   </div>
-                  <span className="text-[11px] font-mono text-emerald-400">Target: High Confidence</span>
-                </div>
-              )}
+                );
+              })()}
             </div>
           );
         })}
