@@ -12,6 +12,7 @@ class UserProfileCreate(BaseModel):
     """
     Schema for creating or updating a user career profile.
     """
+    user_id: Optional[str] = Field(None, description="Authenticated user account ID")
     full_name: str = Field(..., description="User's full name", example="Jane Doe")
     education_degree: Optional[str] = Field(None, description="Degree or qualification", example="B.S. in Computer Science")
     institution: Optional[str] = Field(None, description="School or university name", example="State University")

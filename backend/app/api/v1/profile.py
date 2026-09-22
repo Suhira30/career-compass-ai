@@ -7,6 +7,13 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.orm_models import UserProfileDB
+from app.models.profile import (
+    UserProfileCreate,
+    UserProfileUpdate,
+    UserProfileResponse,
+    UserProfileDetail,
+)
+from app.services.profile_service import ProfileService, profiles_db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,27 +33,28 @@ async def create_profile(profile_in: UserProfileCreate, db: Session = Depends(ge
     POST /api/v1/profile
     """
     full_profile = ProfileService.create_profile(profile_in)
-    try:
-        db_profile = UserProfileDB(
-            id=full_profile.profile_id,
-            user_id=getattr(profile_in, "user_id", None),
-            full_name=full_profile.full_name,
-            education_degree=full_profile.education_degree,
-            institution=full_profile.institution,
-            graduation_year=full_profile.graduation_year,
-            current_role=full_profile.current_role,
-            target_role=full_profile.target_role,
-            skills=full_profile.skills,
-            soft_skills=full_profile.soft_skills,
-            career_interests=full_profile.career_interests,
-            status=full_profile.status,
-            created_at=full_profile.created_at,
-        )
-        db.add(db_profile)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.warning(f"Could not persist profile to Supabase (using in-memory fallback): {e}")
+    user_id = getattr(profile_in, "user_id", None)
+    if user_id:
+        try:
+            db_profile = UserProfileDB(
+                id=full_profile.profile_id,
+                user_id=user_id,
+                full_name=full_profile.full_name,
+                education_degree=full_profile.education_degree,
+                institution=full_profile.institution,
+                current_role=full_profile.current_role,
+                target_role=full_profile.target_role,
+                skills=full_profile.skills,
+                soft_skills=full_profile.soft_skills,
+                career_interests=full_profile.career_interests,
+                status=full_profile.status,
+                created_at=full_profile.created_at,
+            )
+            db.add(db_profile)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Could not persist profile to Supabase (using in-memory fallback): {e}")
 
     return UserProfileResponse(
         profile_id=full_profile.profile_id,

@@ -52,29 +52,31 @@ async def extract_job_description(request: JobExtractRequest, db: Session = Depe
     # 3. Persist in memory repository
     jobs_db[job_id] = response
 
-    # 4. Persist to Supabase PostgreSQL database
-    try:
-        db_job = JobDescriptionDB(
-            id=job_id,
-            user_id=getattr(request, "user_id", None),
-            company_name=extracted_job.company_name or "Target Company",
-            job_title=extracted_job.job_title or "Software Engineer",
-            raw_job_description=clean_text,
-            required_skills=extracted_job.required_skills or [],
-            preferred_skills=extracted_job.preferred_skills or [],
-            responsibilities=extracted_job.responsibilities or [],
-            required_experience=extracted_job.required_experience or "Not Specified",
-            education_requirements=extracted_job.education_requirements or "Not Specified",
-            work_mode=extracted_job.work_mode or "Not Specified",
-            location=extracted_job.location or "Not Specified",
-            salary_range=extracted_job.salary_range or "Not Specified",
-            created_at=datetime.utcnow().isoformat() + "Z",
-        )
-        db.add(db_job)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.warning(f"Could not persist job description to Supabase (using in-memory fallback): {e}")
+    # 4. Persist to Supabase PostgreSQL database only if user is logged in
+    user_id = getattr(request, "user_id", None)
+    if user_id:
+        try:
+            db_job = JobDescriptionDB(
+                id=job_id,
+                user_id=user_id,
+                company_name=getattr(extracted_job, "company_name", None) or "Target Company",
+                job_title=extracted_job.job_title or "Software Engineer",
+                raw_job_description=clean_text,
+                required_skills=extracted_job.required_skills or [],
+                preferred_skills=extracted_job.preferred_skills or [],
+                responsibilities=extracted_job.responsibilities or [],
+                required_experience=extracted_job.required_experience or "Not Specified",
+                education_requirements=extracted_job.education_requirements or "Not Specified",
+                work_mode=extracted_job.work_mode or "Not Specified",
+                location=extracted_job.location or "Not Specified",
+                salary_range=extracted_job.salary_range or "Not Specified",
+                created_at=datetime.utcnow().isoformat() + "Z",
+            )
+            db.add(db_job)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Could not persist job description to Supabase (using in-memory fallback): {e}")
 
     return response
 

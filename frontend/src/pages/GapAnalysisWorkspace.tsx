@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { UserNavPill } from '../components/auth/UserNavPill';
 import { ExtractedProfileReview } from '../components/gap-analysis/ExtractedProfileReview';
 import { InteractiveAnalyzeButton } from '../components/gap-analysis/InteractiveAnalyzeButton';
 import { JobDescriptionInput, SAMPLE_AI_JD } from '../components/gap-analysis/JobDescriptionInput';
 import { ResumeUploader } from '../components/gap-analysis/ResumeUploader';
 import { SkillGapDashboard } from '../components/gap-analysis/SkillGapDashboard';
+import { useAuth } from '../context/AuthContext';
 import { apiService, parseApiError } from '../services/api';
 import {
-  GapAnalysisResponse,
-  JobExtractResponse,
-  ResumeUploadResponse,
-  UserProfileInput,
+    GapAnalysisResponse,
+    JobExtractResponse,
+    ResumeUploadResponse,
+    UserProfileInput,
 } from '../types';
+import { storageAdapter } from '../utils/storageAdapter';
 
 interface GapAnalysisWorkspaceProps {
   onBackToLanding: () => void;
@@ -31,113 +34,92 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
   onNavigateGalaxy,
 }) => {
   // Restore all state across page navigations and browser refreshes
+  const { user } = useAuth();
+  const isAuth = Boolean(user);
+
+  // Cloud Profile for Returning Logged-In Users
+  const [userCloudProfile, setUserCloudProfile] = useState<any | null>(null);
+  const [usingExistingResume, setUsingExistingResume] = useState<boolean>(false);
+
+  const prevUserIdRef = React.useRef<string | null | undefined>(user?.id);
+
+  // Restore state: sessionStorage for guests, localStorage for authenticated users (user-scoped)
   const [extractedResume, setExtractedResume] = useState<ResumeUploadResponse | null>(() => {
-    try {
-      const saved = localStorage.getItem('career_compass_extracted_resume');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return null;
+    return storageAdapter.getExtractedResume(Boolean(user), user?.id);
   });
 
   const [profileId, setProfileId] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem('career_compass_profile_id');
-    } catch {}
-    return null;
+    return storageAdapter.getProfileId(Boolean(user), user?.id);
   });
 
   const [jobTitle, setJobTitle] = useState<string>(() => {
-    try {
-      return localStorage.getItem('career_compass_active_job_title') || '';
-    } catch {}
-    return '';
+    return storageAdapter.getActiveJobTitle(Boolean(user), user?.id);
   });
 
   const [rawJd, setRawJd] = useState<string>(() => {
-    try {
-      return localStorage.getItem('career_compass_raw_jd') || '';
-    } catch {}
-    return '';
+    return storageAdapter.getRawJd(Boolean(user), user?.id);
   });
 
   const [currentJobId, setCurrentJobId] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem('career_compass_job_id');
-    } catch {}
-    return null;
+    return storageAdapter.getJobId(Boolean(user), user?.id);
   });
 
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const [analysisData, setAnalysisData] = useState<GapAnalysisResponse | null>(() => {
-    try {
-      const saved = localStorage.getItem('career_compass_analysis_data');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return null;
+    return storageAdapter.getAnalysisData(Boolean(user), user?.id);
   });
 
-  // Auto-sync resume to localStorage
+  // Fetch Cloud Profile for returning authenticated users
   useEffect(() => {
-    try {
-      if (extractedResume) {
-        localStorage.setItem('career_compass_extracted_resume', JSON.stringify(extractedResume));
-      } else {
-        localStorage.removeItem('career_compass_extracted_resume');
-      }
-    } catch {}
-  }, [extractedResume]);
+    if (!user?.id) return;
+    apiService
+      .getProfile(user.id)
+      .then((p) => {
+        if (p && (p.skills?.length || p.full_name)) {
+          setUserCloudProfile(p);
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
-  // Auto-sync profileId
+  // Synchronize state on user switch / login / logout & auto-sync active user data
   useEffect(() => {
-    try {
-      if (profileId) {
-        localStorage.setItem('career_compass_profile_id', profileId);
-      }
-    } catch {}
-  }, [profileId]);
+    if (prevUserIdRef.current !== user?.id) {
+      prevUserIdRef.current = user?.id;
+      // Identity changed: reload clean slate or user-scoped persisted data
+      const currentResume = storageAdapter.getExtractedResume(isAuth, user?.id);
+      const currentPid = storageAdapter.getProfileId(isAuth, user?.id);
+      const currentTitle = storageAdapter.getActiveJobTitle(isAuth, user?.id);
+      const currentJd = storageAdapter.getRawJd(isAuth, user?.id);
+      const currentJid = storageAdapter.getJobId(isAuth, user?.id);
+      const currentAnalysis = storageAdapter.getAnalysisData(isAuth, user?.id);
 
-  // Auto-sync jobTitle
-  useEffect(() => {
-    try {
-      if (jobTitle) {
-        localStorage.setItem('career_compass_active_job_title', jobTitle);
-      }
-    } catch {}
-  }, [jobTitle]);
+      setExtractedResume(currentResume);
+      setProfileId(currentPid);
+      setJobTitle(currentTitle);
+      setRawJd(currentJd);
+      setCurrentJobId(currentJid);
+      setAnalysisData(currentAnalysis);
+      setUsingExistingResume(false);
+      setUserCloudProfile(null);
+      setAnalysisError(null);
+      return;
+    }
 
-  // Auto-sync raw JD text
-  useEffect(() => {
-    try {
-      if (rawJd) {
-        localStorage.setItem('career_compass_raw_jd', rawJd);
-      }
-    } catch {}
-  }, [rawJd]);
-
-  // Auto-sync jobId
-  useEffect(() => {
-    try {
-      if (currentJobId) {
-        localStorage.setItem('career_compass_job_id', currentJobId);
-      }
-    } catch {}
-  }, [currentJobId]);
-
-  // Auto-sync analysis results
-  useEffect(() => {
-    try {
-      if (analysisData) {
-        localStorage.setItem('career_compass_analysis_data', JSON.stringify(analysisData));
-      } else {
-        localStorage.removeItem('career_compass_analysis_data');
-      }
-    } catch {}
-  }, [analysisData]);
+    // Auto-sync current user state
+    storageAdapter.setExtractedResume(isAuth, extractedResume, user?.id);
+    storageAdapter.setProfileId(isAuth, profileId, user?.id);
+    storageAdapter.setActiveJobTitle(isAuth, jobTitle, user?.id);
+    storageAdapter.setRawJd(isAuth, rawJd, user?.id);
+    storageAdapter.setJobId(isAuth, currentJobId, user?.id);
+    storageAdapter.setAnalysisData(isAuth, analysisData, user?.id);
+  }, [user?.id, isAuth, extractedResume, profileId, jobTitle, rawJd, currentJobId, analysisData]);
 
   const handleExtractionSuccess = (data: ResumeUploadResponse) => {
     setExtractedResume(data);
+    setUsingExistingResume(false);
     setAnalysisError(null);
   };
 
@@ -146,12 +128,54 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
     setProfileId(null);
     setAnalysisData(null);
     setAnalysisError(null);
-    try {
-      localStorage.removeItem('career_compass_extracted_resume');
-      localStorage.removeItem('career_compass_profile_id');
-      localStorage.removeItem('career_compass_analysis_data');
-      localStorage.removeItem('career_compass_active_analysis_id');
-    } catch {}
+    setUsingExistingResume(false);
+    storageAdapter.clearLegacyUnscopedKeys();
+    storageAdapter.setExtractedResume(isAuth, null, user?.id);
+    storageAdapter.setProfileId(isAuth, null, user?.id);
+    storageAdapter.setAnalysisData(isAuth, null, user?.id);
+    storageAdapter.setActiveAnalysisId(isAuth, null, user?.id);
+  };
+
+  const handleStartNewAnalysis = () => {
+    setExtractedResume(null);
+    setProfileId(null);
+    setAnalysisData(null);
+    setAnalysisError(null);
+    setRawJd('');
+    setJobTitle('');
+    setCurrentJobId(null);
+    setUsingExistingResume(false);
+    storageAdapter.clearLegacyUnscopedKeys();
+    if (!isAuth) {
+      storageAdapter.clearGuestSession();
+    } else {
+      storageAdapter.setExtractedResume(true, null, user?.id);
+      storageAdapter.setAnalysisData(true, null, user?.id);
+      storageAdapter.setRawJd(true, '', user?.id);
+      storageAdapter.setActiveJobTitle(true, '', user?.id);
+      storageAdapter.setJobId(true, null, user?.id);
+      storageAdapter.setActiveAnalysisId(true, null, user?.id);
+    }
+  };
+
+  const handleUseExistingResume = () => {
+    if (!userCloudProfile) return;
+    const synthesized: ResumeUploadResponse = {
+      file_name: `${(userCloudProfile.full_name || user?.name || 'Active_Resume').replace(/\s+/g, '_')}.pdf`,
+      extracted_data: {
+        technical_skills: userCloudProfile.skills || [],
+        soft_skills: userCloudProfile.soft_skills || [],
+        work_experience: userCloudProfile.work_experiences || [],
+        education: userCloudProfile.education || [],
+        certifications: userCloudProfile.certifications || [],
+        projects: [],
+        links: userCloudProfile.social_profiles || {},
+      },
+    };
+    setExtractedResume(synthesized);
+    setProfileId(userCloudProfile.profile_id || user?.id || 'usr_active');
+    setUsingExistingResume(true);
+    setAnalysisError(null);
   };
 
   const handleProfileSaved = (savedProfileId: string) => {
@@ -188,7 +212,8 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
           try {
             const ext = extractedResume.extracted_data;
             const payload: UserProfileInput = {
-              full_name: 'Candidate Profile',
+              user_id: user?.id,
+              full_name: user?.name || 'Candidate Profile',
               current_role: ext.work_experience?.[0]?.role || 'Software Engineer',
               target_role: jobTitle.trim() || 'Software Engineer',
               skills: ext.technical_skills || [],
@@ -213,12 +238,12 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
 
       // Step 2: Extract structured Job Description
       let targetJobId = currentJobId;
-      const jobExtractResult: JobExtractResponse = await apiService.extractJobDescription(rawJd);
+      const jobExtractResult: JobExtractResponse = await apiService.extractJobDescription(rawJd, user?.id);
       targetJobId = jobExtractResult.job_id;
       setCurrentJobId(targetJobId);
 
       // Step 3: Execute Skill Gap & Match Analysis
-      const result = await apiService.performGapAnalysis(activeProfileId, targetJobId);
+      const result = await apiService.performGapAnalysis(activeProfileId, targetJobId, user?.id);
       setAnalysisData(result);
 
       // Step 4: Smooth scroll down to results
@@ -275,8 +300,35 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* Back to Landing Action */}
+          {/* Header Actions */}
           <div className="flex items-center gap-3">
+            {/* New / Reset Analysis Button */}
+            {(extractedResume || rawJd || analysisData) && (
+              <button
+                type="button"
+                onClick={handleStartNewAnalysis}
+                className="glass-pill px-3.5 py-1.5 rounded-full text-xs text-amber-300/90 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title={isAuth ? 'Start a fresh analysis with a new target job' : 'Clear ephemeral session data'}
+              >
+                <span>🔄</span>
+                <span>New Analysis</span>
+              </button>
+            )}
+
+            {isAuth && (
+              <button
+                type="button"
+                onClick={() => onNavigateRoadmap?.([], undefined, null, jobTitle)}
+                className="glass-pill px-3.5 py-1.5 rounded-full text-xs text-cyan-300 hover:text-cyan-200 hover:bg-cyan-500/15 border border-cyan-400/30 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="View your saved learning roadmaps"
+              >
+                <span>🗺️</span>
+                <span className="hidden sm:inline">My Roadmaps</span>
+              </button>
+            )}
+
+            <UserNavPill />
+
             <button
               type="button"
               onClick={onBackToLanding}
@@ -309,6 +361,67 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
             </div>
           </div>
         </div>
+
+        {/* ================= RETURNING AUTHENTICATED USER: ACTIVE RESUME ON FILE ================= */}
+        {isAuth && userCloudProfile && !extractedResume && (
+          <div className="glass-frame rounded-2xl p-5 border border-cyan-500/30 bg-gradient-to-r from-cyan-950/40 via-[#131b2e]/60 to-emerald-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-cyan-950/30">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 text-cyan-300 text-lg">
+                📄
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400 font-mono">
+                    Cloud Resume on File
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Ready for 1-Click Match
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-white mt-0.5">
+                  {userCloudProfile.full_name || user?.name || 'Your Active Profile'}
+                  {userCloudProfile.current_role ? ` • ${userCloudProfile.current_role}` : ''}
+                </h4>
+                <p className="text-xs text-slate-300/80 mt-0.5">
+                  {(userCloudProfile.skills?.length || 0)} skills on record
+                  {userCloudProfile.target_role ? ` • Aiming for ${userCloudProfile.target_role}` : ''}
+                  . You can analyze against a new job description directly or upload an updated CV below.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={handleUseExistingResume}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-900 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 transition-all shadow-md shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <span>⚡</span>
+                <span>Use Active Resume</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================= ACTIVE RESUME LOADED BANNER ================= */}
+        {usingExistingResume && extractedResume && (
+          <div className="glass-pill rounded-xl px-4 py-2.5 border border-cyan-400/40 bg-cyan-950/30 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-cyan-400 font-bold">⚡ Active Cloud Resume:</span>
+              <span className="text-white font-medium">{extractedResume.file_name}</span>
+              <span className="text-cyan-300/70 font-mono text-[11px]">
+                ({extractedResume.extracted_data?.technical_skills?.length || 0} skills)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveFile}
+              className="text-slate-400 hover:text-amber-300 transition-colors text-[11px] underline underline-offset-2 cursor-pointer"
+            >
+              Upload Different Resume Instead
+            </button>
+          </div>
+        )}
 
         {/* ================= DUAL INPUT ENGINES WITH INTERACTIVE SPOTLIGHT ================= */}
         <div className="space-y-6">
@@ -360,9 +473,7 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
           analysisData={analysisData}
           onNavigateRoadmap={(gaps, aId) => {
             const role = jobTitle.trim() || 'Target Opportunity';
-            try {
-              localStorage.setItem('career_compass_active_job_title', role);
-            } catch {}
+            storageAdapter.setActiveJobTitle(isAuth, role, user?.id);
             onNavigateRoadmap?.(gaps, aId || analysisData?.analysis_id, analysisData, role);
           }}
           onNavigateCopilot={onNavigateCopilot}

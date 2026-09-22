@@ -8,7 +8,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { login } = useAuth();
+  const { login, authModalSubtitle, triggerAuthSuccess } = useAuth();
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -44,6 +44,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       login(email, fullName || email.split('@')[0]);
       setIsLoading(false);
       onClose();
+      triggerAuthSuccess();
       if (onSuccess) onSuccess();
     }, 600);
   };
@@ -69,8 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               <h3 className="text-lg font-bold text-white tracking-tight">
                 {isSignUp ? 'Create Your Account' : 'Sign In to Career Compass'}
               </h3>
-              <p className="text-[11px] text-white/50">
-                Sync roadmaps, ATS scores, and tasks across devices
+              <p className="text-[11px] text-cyan-300/80 leading-snug max-w-[280px]">
+                {authModalSubtitle || 'Sync roadmaps, ATS scores, and tasks across devices'}
               </p>
             </div>
           </div>

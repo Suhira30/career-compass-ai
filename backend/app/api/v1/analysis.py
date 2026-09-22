@@ -128,25 +128,27 @@ async def perform_skill_gap_analysis(request: GapAnalysisRequest, db: Session = 
 
     analysis_db[analysis_id] = response
 
-    # 6. Persist to Supabase PostgreSQL database
-    try:
-        db_res = AnalysisResultDB(
-            id=analysis_id,
-            profile_id=request.profile_id,
-            job_id=request.job_id,
-            readiness_category=readiness_category,
-            match_score_percentage=float(score_pct),
-            matched_skills=matrix.matched_skills or [],
-            missing_skills=matrix.missing_skills or [],
-            partially_available_skills=matrix.partially_available_skills or [],
-            assessment=assessment.model_dump(),
-            created_at=datetime.utcnow().isoformat() + "Z",
-        )
-        db.add(db_res)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.warning(f"Could not persist analysis result to Supabase (using in-memory fallback): {e}")
+    # 6. Persist to Supabase PostgreSQL database only for authenticated users
+    user_id = getattr(request, "user_id", None)
+    if user_id:
+        try:
+            db_res = AnalysisResultDB(
+                id=analysis_id,
+                profile_id=request.profile_id,
+                job_id=request.job_id,
+                readiness_category=readiness_category,
+                match_score_percentage=float(score_pct),
+                matched_skills=matrix.matched_skills or [],
+                missing_skills=matrix.missing_skills or [],
+                partially_available_skills=matrix.partially_available_skills or [],
+                assessment=assessment.model_dump(),
+                created_at=datetime.utcnow().isoformat() + "Z",
+            )
+            db.add(db_res)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Could not persist analysis result to Supabase (using in-memory fallback): {e}")
 
     return response
 
