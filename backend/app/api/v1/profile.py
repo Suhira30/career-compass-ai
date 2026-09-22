@@ -72,11 +72,38 @@ async def create_profile(profile_in: UserProfileCreate, db: Session = Depends(ge
     summary="Fetch user profile by ID",
     description="Retrieves a user's full career profile details including skills, target role, and education.",
 )
-async def get_profile(profile_id: str):
+async def get_profile(profile_id: str, db: Session = Depends(get_db)):
     """
     GET /api/v1/profile/{profile_id}
     """
     profile = ProfileService.get_profile(profile_id)
+    if not profile:
+        # Check Supabase database by profile ID or user_id UUID
+        try:
+            from sqlalchemy import select
+            stmt = select(UserProfileDB).where(
+                (UserProfileDB.id == profile_id) | (UserProfileDB.user_id == profile_id)
+            ).order_by(UserProfileDB.created_at.desc())
+            db_res = db.scalars(stmt).first()
+            if db_res:
+                profile = UserProfileDetail(
+                    profile_id=db_res.id,
+                    user_id=db_res.user_id,
+                    full_name=db_res.full_name,
+                    education_degree=db_res.education_degree,
+                    institution=db_res.institution,
+                    graduation_year=db_res.graduation_year,
+                    current_role=db_res.current_role,
+                    target_role=db_res.target_role,
+                    skills=db_res.skills or [],
+                    soft_skills=db_res.soft_skills or [],
+                    career_interests=db_res.career_interests or [],
+                    status=db_res.status or "active",
+                    created_at=str(db_res.created_at),
+                )
+        except Exception as e:
+            logger.warning(f"Could not load profile from Supabase: {e}")
+
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

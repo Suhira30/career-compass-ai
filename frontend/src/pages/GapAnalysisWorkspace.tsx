@@ -8,10 +8,10 @@ import { SkillGapDashboard } from '../components/gap-analysis/SkillGapDashboard'
 import { useAuth } from '../context/AuthContext';
 import { apiService, parseApiError } from '../services/api';
 import {
-    GapAnalysisResponse,
-    JobExtractResponse,
-    ResumeUploadResponse,
-    UserProfileInput,
+  GapAnalysisResponse,
+  JobExtractResponse,
+  ResumeUploadResponse,
+  UserProfileInput,
 } from '../types';
 import { storageAdapter } from '../utils/storageAdapter';
 
@@ -88,15 +88,17 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
   useEffect(() => {
     if (prevUserIdRef.current !== user?.id) {
       prevUserIdRef.current = user?.id;
-      // Identity changed: reload clean slate or user-scoped persisted data
-      const currentResume = storageAdapter.getExtractedResume(isAuth, user?.id);
-      const currentPid = storageAdapter.getProfileId(isAuth, user?.id);
-      const currentTitle = storageAdapter.getActiveJobTitle(isAuth, user?.id);
-      const currentJd = storageAdapter.getRawJd(isAuth, user?.id);
-      const currentJid = storageAdapter.getJobId(isAuth, user?.id);
-      const currentAnalysis = storageAdapter.getAnalysisData(isAuth, user?.id);
+      // Identity changed: check if user already has saved resume or migrate in-flight guest resume
+      const savedResume = storageAdapter.getExtractedResume(isAuth, user?.id);
+      const activeResume = savedResume || extractedResume;
 
-      setExtractedResume(currentResume);
+      const currentPid = storageAdapter.getProfileId(isAuth, user?.id);
+      const currentTitle = storageAdapter.getActiveJobTitle(isAuth, user?.id) || jobTitle;
+      const currentJd = storageAdapter.getRawJd(isAuth, user?.id) || rawJd;
+      const currentJid = storageAdapter.getJobId(isAuth, user?.id) || currentJobId;
+      const currentAnalysis = storageAdapter.getAnalysisData(isAuth, user?.id) || analysisData;
+
+      setExtractedResume(activeResume);
       setProfileId(currentPid);
       setJobTitle(currentTitle);
       setRawJd(currentJd);
@@ -105,6 +107,33 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
       setUsingExistingResume(false);
       setUserCloudProfile(null);
       setAnalysisError(null);
+
+      // If user just logged in/signed up and has an active resume, auto-persist profile to Supabase
+      if (isAuth && user?.id && activeResume?.extracted_data) {
+        const ext = activeResume.extracted_data;
+        apiService
+          .createProfile({
+            user_id: user.id,
+            full_name: user.name || 'Candidate Profile',
+            current_role: ext.work_experience?.[0]?.role || 'Software Engineer',
+            target_role: currentTitle?.trim() || 'Software Engineer',
+            skills: ext.technical_skills || [],
+            education_degree: ext.education?.[0]?.degree,
+            institution: ext.education?.[0]?.institution,
+            graduation_year:
+              typeof ext.education?.[0]?.graduation_year === 'number'
+                ? ext.education[0].graduation_year
+                : undefined,
+          })
+          .then((saved) => {
+            setProfileId(saved.profile_id);
+            storageAdapter.setProfileId(true, saved.profile_id, user.id);
+            storageAdapter.setExtractedResume(true, activeResume, user.id);
+          })
+          .catch((err) => {
+            console.warn('Auto profile migration to Supabase failed:', err);
+          });
+      }
       return;
     }
 
@@ -117,10 +146,35 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
     storageAdapter.setAnalysisData(isAuth, analysisData, user?.id);
   }, [user?.id, isAuth, extractedResume, profileId, jobTitle, rawJd, currentJobId, analysisData]);
 
-  const handleExtractionSuccess = (data: ResumeUploadResponse) => {
+  const handleExtractionSuccess = async (data: ResumeUploadResponse) => {
     setExtractedResume(data);
     setUsingExistingResume(false);
     setAnalysisError(null);
+
+    // If user is already authenticated, immediately persist profile to Supabase!
+    if (isAuth && user?.id && data.extracted_data) {
+      try {
+        const ext = data.extracted_data;
+        const saved = await apiService.createProfile({
+          user_id: user.id,
+          full_name: user.name || 'Candidate Profile',
+          current_role: ext.work_experience?.[0]?.role || 'Software Engineer',
+          target_role: jobTitle?.trim() || 'Software Engineer',
+          skills: ext.technical_skills || [],
+          education_degree: ext.education?.[0]?.degree,
+          institution: ext.education?.[0]?.institution,
+          graduation_year:
+            typeof ext.education?.[0]?.graduation_year === 'number'
+              ? ext.education[0].graduation_year
+              : undefined,
+        });
+        setProfileId(saved.profile_id);
+        storageAdapter.setProfileId(true, saved.profile_id, user.id);
+        storageAdapter.setExtractedResume(true, data, user.id);
+      } catch (err) {
+        console.warn('Could not auto-persist profile on upload:', err);
+      }
+    }
   };
 
   const handleRemoveFile = () => {

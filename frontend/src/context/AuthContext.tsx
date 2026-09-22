@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../services/supabaseClient';
 import { storageAdapter } from '../utils/storageAdapter';
 
 export interface AuthUser {
-  id: string; // UUID from Supabase or generated
+  id: string; // True PostgreSQL UUID from Supabase Auth
   email: string;
   name: string;
   login_at: number;
@@ -16,25 +17,15 @@ interface AuthContextType {
   authModalSubtitle: string | null;
   openAuthModal: (subtitle?: string, onSuccess?: () => void) => void;
   closeAuthModal: () => void;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUpWithPassword: (email: string, password: string, fullName?: string) => Promise<{ error: string | null }>;
   login: (email: string, name?: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   touchSession: () => void;
   triggerAuthSuccess: () => void;
 }
 
-// Default session expiration: 24 hours of inactivity
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-
-export const generateUserIdForEmail = (email: string): string => {
-  const clean = email.toLowerCase().trim();
-  let hash = 0;
-  for (let i = 0; i < clean.length; i++) {
-    hash = ((hash << 5) - hash) + clean.charCodeAt(i);
-    hash |= 0;
-  }
-  const prefix = clean.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'user';
-  return `usr_${prefix}_${Math.abs(hash).toString(36)}`;
-};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -43,23 +34,25 @@ const AuthContext = createContext<AuthContextType>({
   authModalSubtitle: null,
   openAuthModal: () => {},
   closeAuthModal: () => {},
+  signInWithPassword: async () => ({ error: null }),
+  signUpWithPassword: async () => ({ error: null }),
   login: () => {},
-  logout: () => {},
+  logout: async () => {},
   touchSession: () => {},
   triggerAuthSuccess: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalSubtitle, setAuthModalSubtitle] = useState<string | null>(null);
+  const [successCallback, setSuccessCallback] = useState<(() => void) | null>(null);
 
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const saved = localStorage.getItem('career_compass_auth_user');
       if (saved) {
         const parsed: AuthUser = JSON.parse(saved);
-        // Enforce Session TTL validation (reject stale sessions)
         if (parsed.expires_at && Date.now() > parsed.expires_at) {
-          console.info('Career Compass: Auth session expired. Resetting to guest mode.');
           localStorage.removeItem('career_compass_auth_user');
           return null;
         }
@@ -71,73 +64,158 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isGuest = !user;
 
-  // Periodic check for session expiration (every 60 seconds)
+  // Initialize and synchronize with real Supabase Auth sessions
   useEffect(() => {
-    if (!user) return;
-
-    const interval = setInterval(() => {
-      if (user.expires_at && Date.now() > user.expires_at) {
-        console.warn('Career Compass: Session TTL expired. Logging out.');
-        logout();
+    // 1. Check existing session on mount
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Supabase getSession error:', error.message);
+        return;
       }
-    }, 60000);
+      if (session?.user) {
+        const authUser: AuthUser = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          login_at: Date.now(),
+          expires_at: (session.expires_at || 0) * 1000 || Date.now() + SESSION_TTL_MS,
+        };
+        setUser(authUser);
+        try {
+          localStorage.setItem('career_compass_auth_user', JSON.stringify(authUser));
+        } catch {}
+      }
+    });
 
-    return () => clearInterval(interval);
-  }, [user]);
+    // 2. Listen to real-time auth changes (sign in, sign out, token refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        const authUser: AuthUser = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          login_at: Date.now(),
+          expires_at: (session.expires_at || 0) * 1000 || Date.now() + SESSION_TTL_MS,
+        };
+        setUser(authUser);
+        try {
+          localStorage.setItem('career_compass_auth_user', JSON.stringify(authUser));
+          storageAdapter.clearLegacyUnscopedKeys();
+        } catch {}
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        try {
+          localStorage.removeItem('career_compass_auth_user');
+          storageAdapter.clearGuestSession();
+        } catch {}
+      }
+    });
 
-  const login = (email: string, name?: string) => {
-    const now = Date.now();
-    const expiresAt = now + SESSION_TTL_MS;
-
-    const authUser: AuthUser = {
-      id: generateUserIdForEmail(email),
-      email: email.trim(),
-      name: name?.trim() || email.split('@')[0],
-      login_at: now,
-      expires_at: expiresAt,
+    return () => {
+      subscription.unsubscribe();
     };
+  }, []);
 
-    setUser(authUser);
+  // Real Supabase Sign In
+  const signInWithPassword = async (email: string, password: string): Promise<{ error: string | null }> => {
     try {
-      localStorage.setItem('career_compass_auth_user', JSON.stringify(authUser));
-      // Purge any legacy unscoped data from localStorage
-      storageAdapter.clearLegacyUnscopedKeys();
-    } catch (err) {
-      console.warn('Could not persist auth user to localStorage:', err);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      if (data.user) {
+        const authUser: AuthUser = {
+          id: data.user.id,
+          email: data.user.email || email.trim(),
+          name: data.user.user_metadata?.full_name || email.split('@')[0],
+          login_at: Date.now(),
+          expires_at: (data.session?.expires_at || 0) * 1000 || Date.now() + SESSION_TTL_MS,
+        };
+        setUser(authUser);
+        try {
+          localStorage.setItem('career_compass_auth_user', JSON.stringify(authUser));
+        } catch {}
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Authentication failed' };
     }
   };
 
-  const logout = () => {
+  // Real Supabase Sign Up
+  const signUpWithPassword = async (
+    email: string,
+    password: string,
+    fullName?: string
+  ): Promise<{ error: string | null }> => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: fullName?.trim() || email.split('@')[0],
+          },
+        },
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      // If Supabase has email confirmations disabled, user is immediately active
+      if (data.user) {
+        const authUser: AuthUser = {
+          id: data.user.id,
+          email: data.user.email || email.trim(),
+          name: fullName?.trim() || data.user.user_metadata?.full_name || email.split('@')[0],
+          login_at: Date.now(),
+          expires_at: (data.session?.expires_at || 0) * 1000 || Date.now() + SESSION_TTL_MS,
+        };
+        setUser(authUser);
+        try {
+          localStorage.setItem('career_compass_auth_user', JSON.stringify(authUser));
+        } catch {}
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Registration failed' };
+    }
+  };
+
+  // Backwards-compatible mock login fallback (if used anywhere)
+  const login = (email: string, _name?: string) => {
+    signInWithPassword(email, 'DefaultPassword123!').catch(() => {});
+  };
+
+  // Real Supabase Logout
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Supabase signOut error:', err);
+    }
     setUser(null);
     setIsAuthModalOpen(false);
     try {
       localStorage.removeItem('career_compass_auth_user');
       storageAdapter.clearGuestSession();
       storageAdapter.clearLegacyUnscopedKeys();
-    } catch (err) {
-      console.warn('Could not clear auth user from localStorage:', err);
-    }
+    } catch {}
   };
 
-  // Extend session on user activity (sliding session expiration)
   const touchSession = () => {
-    if (!user) return;
-    const now = Date.now();
-    // Only refresh if more than 30 mins have elapsed since last login/refresh
-    if (user.expires_at - now < SESSION_TTL_MS - 30 * 60 * 1000) {
-      const updatedUser: AuthUser = {
-        ...user,
-        expires_at: now + SESSION_TTL_MS,
-      };
-      setUser(updatedUser);
-      try {
-        localStorage.setItem('career_compass_auth_user', JSON.stringify(updatedUser));
-      } catch {}
-    }
+    // Supabase autoRefreshToken handles token refresh automatically
   };
-
-  const [authModalSubtitle, setAuthModalSubtitle] = useState<string | null>(null);
-  const [successCallback, setSuccessCallback] = useState<(() => void) | null>(null);
 
   const openAuthModal = (subtitle?: string, onSuccess?: () => void) => {
     setAuthModalSubtitle(subtitle || null);
@@ -167,6 +245,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authModalSubtitle,
         openAuthModal,
         closeAuthModal,
+        signInWithPassword,
+        signUpWithPassword,
         login,
         logout,
         touchSession,

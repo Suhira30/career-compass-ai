@@ -8,7 +8,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { login, authModalSubtitle, triggerAuthSuccess } = useAuth();
+  const { signInWithPassword, signUpWithPassword, authModalSubtitle, triggerAuthSuccess } = useAuth();
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -29,24 +29,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setErrorMessage('Please enter both email and password.');
       return;
     }
 
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Simulate authentication / Supabase Auth session
-    setTimeout(() => {
-      login(email, fullName || email.split('@')[0]);
+    try {
+      if (isSignUp) {
+        // Real Supabase Sign Up
+        const result = await signUpWithPassword(email, password, fullName);
+        if (result.error) {
+          setErrorMessage(result.error);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // Real Supabase Sign In
+        const result = await signInWithPassword(email, password);
+        if (result.error) {
+          setErrorMessage(result.error);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       setIsLoading(false);
       onClose();
       triggerAuthSuccess();
       if (onSuccess) onSuccess();
-    }, 600);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err.message || 'Authentication failed. Please try again.');
+    }
   };
 
   return (
@@ -154,6 +178,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/70 border border-white/15 focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/30 text-white text-xs outline-none transition"
             />
           </div>
@@ -188,4 +213,3 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     </div>
   );
 };
-

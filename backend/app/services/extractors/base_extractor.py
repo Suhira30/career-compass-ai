@@ -20,6 +20,52 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+def extract_structured_data(
+    raw_text: str,
+    system_prompt: str,
+    schema_class: Type[T],
+    task_name: str = "Extraction",
+) -> T:
+    """
+    Generic extraction executor with dynamic multi-provider fallback.
+    Default provider priority: configured LLM_PROVIDER (e.g. Gemini) -> Groq -> OpenAI.
+    """
+    providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
+    errors = []
+
+    for provider in providers:
+        try:
+            logger.info(f"Attempting {task_name} with Provider: {provider.upper()}")
+            if provider == "gemini":
+                return _try_gemini_extraction(system_prompt, raw_text, schema_class)
+            elif provider == "groq":
+                return _try_groq_extraction(system_prompt, raw_text, schema_class)
+            elif provider == "openai":
+                return _try_openai_extraction(system_prompt, raw_text, schema_class)
+        except LLMQuotaExhaustedException:
+            # Immediate BYOK trigger: Prompt user for their free Gemini key
+            raise
+        except Exception as exc:
+            if is_quota_exhausted_error(exc):
+                raise LLMQuotaExhaustedException(
+                    message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
+                ) from exc
+            err_msg = f"{provider.capitalize()} failed: {str(exc) or repr(exc)}"
+            logger.warning(f"{task_name} - {err_msg}")
+            errors.append(err_msg)
+
+    # If any failure was due to rate limits or credit exhaustion, trigger BYOK modal
+    if any(is_quota_exhausted_error(Exception(e)) for e in errors):
+        raise LLMQuotaExhaustedException(
+            message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
+        )
+
+    full_error_details = " | ".join(errors)
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"All LLM {task_name.lower()} providers failed. Details: {full_error_details}",
+    )
+
 
 def _get_active_groq_models() -> List[str]:
     """Dynamically queries Groq API for active chat models available to the current API key."""
@@ -230,49 +276,4 @@ def _try_openai_extraction(system_prompt: str, user_text: str, schema_class: Typ
     return structured_llm.invoke(messages)
 
 
-def extract_structured_data(
-    raw_text: str,
-    system_prompt: str,
-    schema_class: Type[T],
-    task_name: str = "Extraction",
-) -> T:
-    """
-    Generic extraction executor with dynamic multi-provider fallback.
-    Default provider priority: configured LLM_PROVIDER (e.g. Gemini) -> Groq -> OpenAI.
-    """
-    providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
-    errors = []
-
-    for provider in providers:
-        try:
-            logger.info(f"Attempting {task_name} with Provider: {provider.upper()}")
-            if provider == "gemini":
-                return _try_gemini_extraction(system_prompt, raw_text, schema_class)
-            elif provider == "groq":
-                return _try_groq_extraction(system_prompt, raw_text, schema_class)
-            elif provider == "openai":
-                return _try_openai_extraction(system_prompt, raw_text, schema_class)
-        except LLMQuotaExhaustedException:
-            # Immediate BYOK trigger: Prompt user for their free Gemini key
-            raise
-        except Exception as exc:
-            if is_quota_exhausted_error(exc):
-                raise LLMQuotaExhaustedException(
-                    message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
-                ) from exc
-            err_msg = f"{provider.capitalize()} failed: {str(exc) or repr(exc)}"
-            logger.warning(f"{task_name} - {err_msg}")
-            errors.append(err_msg)
-
-    # If any failure was due to rate limits or credit exhaustion, trigger BYOK modal
-    if any(is_quota_exhausted_error(Exception(e)) for e in errors):
-        raise LLMQuotaExhaustedException(
-            message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
-        )
-
-    full_error_details = " | ".join(errors)
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"All LLM {task_name.lower()} providers failed. Details: {full_error_details}",
-    )
 
