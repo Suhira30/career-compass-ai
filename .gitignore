@@ -42,7 +42,12 @@ backend/data/eval_temp/*
 *.swp
 *.swo
 .DS_Store
+*.DS_Store
 Thumbs.db
 *.gitkeep
 
 
+# Local runner shims & batch files
+powershell.bat
+powershell.cmd
+*.bat

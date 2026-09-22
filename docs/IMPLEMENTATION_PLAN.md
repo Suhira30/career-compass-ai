@@ -187,3 +187,30 @@ This Implementation Plan translates the product vision (**`PRD.md`**), functiona
 - [ ] **Task 5.3.1**: Create backend `Dockerfile` and frontend multi-stage `Dockerfile`.
 - [ ] **Task 5.3.2**: Create `docker-compose.yml` orchestrating API container, frontend static server, and vector DB persistence.
 - [ ] **Task 5.3.3**: Validate single-command startup (`docker-compose up --build`).
+
+---
+
+## Phase 6: PLG User Lifecycle, Ephemeral Guest Privacy & Smart CV Persistence
+
+### Task 6.1: Storage Adapter & Guest Ephemeral Privacy (NFR-03)
+
+- [ ] **Task 6.1.1**: Build `storageAdapter.ts` abstracting storage between `sessionStorage` (for anonymous guests) and `localStorage` / cloud sync (for authenticated users).
+- [ ] **Task 6.1.2**: Implement automatic guest session wiping on browser tab exit and landing page arrival to guarantee clean slate for returning visitors.
+- [ ] **Task 6.1.3**: Add explicit "Start New Analysis / Clear Slate" action in `GapAnalysisWorkspace.tsx`.
+
+### Task 6.2: Roadmap Conversion Value Gate & State Stashing (FR-09C)
+
+- [ ] **Task 6.2.1**: Intercept "Generate Roadmap" and "Track Milestones" actions when `user === null`.
+- [ ] **Task 6.2.2**: Implement in-flight state stashing (`analysis_id`, `analysis_data`, `job_title`, hours, weeks) during `<AuthModal />` display.
+- [ ] **Task 6.2.3**: On authentication success, automatically pop stashed state, bind to newly authenticated `user_id`, generate roadmap, and persist to Supabase without re-upload.
+
+### Task 6.3: Returning Authenticated User CV Reusability (FR-01A)
+
+- [ ] **Task 6.3.1**: Fetch and display "Active Resume on File" in `GapAnalysisWorkspace.tsx` for logged-in users.
+- [ ] **Task 6.3.2**: Enable instant 1-click gap analysis against new target job descriptions using the existing stored CV.
+- [ ] **Task 6.3.3**: Provide "Upload Updated Resume" option allowing user to replace or update their resume on file in cloud storage.
+
+### Task 6.4: Guest Career Copilot Ephemeral Chat (FR-10A)
+
+- [ ] **Task 6.4.1**: Permit guest chatting with Career Copilot based on active in-flight gap analysis.
+- [ ] **Task 6.4.2**: Isolate guest chat history to `sessionStorage` with optional migration to user account upon login.

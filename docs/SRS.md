@@ -31,6 +31,19 @@ This Requirements Specification Document (RSD) defines the functional and non-fu
 
 ---
 
+### FR-01A: Authenticated Profile Persistence & CV Reusability
+
+- **Description**: The system shall allow returning authenticated users to reuse their previously uploaded, parsed CV without re-uploading the file.
+- **Capabilities**:
+  - Automatically loads and displays the active CV on file (name, title, skills, experience).
+  - Enables instant 1-click gap analysis against any new target job description.
+  - Provides an explicit "Upload Updated CV" button to replace the active resume on file with a newer version.
+- **Acceptance Criteria**:
+  - Logged-in users opening the Gap Analysis Workspace see their active profile immediately.
+  - Uploading a new CV overwrites or updates their existing profile in the cloud database.
+
+---
+
 ### FR-02: Resume Upload
 
 - **Description**: The system shall allow users to upload their resume file for parsing and automated profile population.
@@ -167,6 +180,16 @@ This Requirements Specification Document (RSD) defines the functional and non-fu
 
 ---
 
+### FR-09C: Roadmap Value Gate & State Stashing
+
+- **Description**: The system shall gate roadmap generation and milestone progress tracking behind user authentication while seamlessly preserving in-flight analysis data.
+- **Conversion Workflow**:
+  - When an unauthenticated visitor requests a roadmap generation or clicks to track milestones, an authentication modal shall prompt them to sign in or create an account.
+  - The in-progress analysis (`analysis_id`, `match_score`, `skill_matrix`, target role) shall be automatically stashed in temporary state.
+  - Upon successful authentication, the system shall bind the stashed analysis to the new `user_id`, generate the roadmap, and persist it to the cloud database without requiring the user to re-upload or re-analyze their CV.
+
+---
+
 ### FR-10: Career AI Assistant
 
 - **Description**: The system shall provide an interactive conversational AI chatbot for user Q&A regarding their career match assessment, resume optimization, and skill gap strategy.
@@ -176,6 +199,16 @@ This Requirements Specification Document (RSD) defines the functional and non-fu
   - Provides advice on resume phrasing and interview prep.
 - **Acceptance Criteria**:
   - Chat assistant preserves conversation context within active user session.
+
+---
+
+### FR-10A: Anonymous Guest Copilot Access
+
+- **Description**: The system shall permit unauthenticated guest users to chat with the Career Copilot regarding their immediate gap analysis.
+- **Ephemeral Isolation**:
+  - Guest chat messages shall live strictly within ephemeral session storage.
+  - When the browser tab or window closes, guest chat messages are cleared.
+  - If a guest authenticates during the session, current conversation history shall be linked to their account.
 
 ---
 
@@ -194,6 +227,7 @@ This Requirements Specification Document (RSD) defines the functional and non-fu
 ### NFR-03: Security & Privacy
 
 - **Personal Data Protection**: Uploaded resumes contain personally identifiable information (PII). Files shall be encrypted at rest and in transit (TLS 1.3).
+- **Ephemeral Guest Privacy**: For unauthenticated guests, resume text, extracted profile entities, and ATS scores shall reside solely in browser `sessionStorage`. Closing the tab or leaving the application immediately clears guest data, ensuring returning visitors encounter a clean, privacy-safe slate.
 - **Privacy Controls**: Uploaded documents shall not be retained in public vector indexes or used to train third-party public models without consent.
 
 ### NFR-04: Reliability & Error Handling

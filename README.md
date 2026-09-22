@@ -47,7 +47,11 @@ By integrating Natural Language Processing (NLP), structured Pydantic extraction
 - 🗺️ **Personalized Learning Plan**: Generates milestone-based roadmaps tailored to user-specified weekly learning hours and preferred study duration.
 - 🗂️ **Multi-Roadmap Carousel & 1:N Role Tracker**: Swipeable horizontal deck allowing candidates to concurrently track multiple target job applications ($1:N$) with individual ATS match score badges, daily/weekly pacing toggles, and isolated task completion lists.
 - 🗑️ **Safe Roadmap Cancellation**: Gated 3D frosted glass modal requiring explicit confirmation before removing an unwanted target role and its study milestones.
-- 🔐 **Two-Tier Storage & Supabase Cloud Sync**: Instant offline guest mode via browser `localStorage` paired with Supabase Auth & PostgreSQL schema supporting multi-tenant profiles and multi-device state sync.
+- 🔐 **Privacy-First PLG User Lifecycle & Two-Tier Storage**:
+  - **Frictionless Anonymous Exploration**: Guest visitors can freely upload resumes, analyze target JDs, view ATS match scores, and interact with the Career Copilot without prior signup.
+  - **Ephemeral Guest Privacy**: All unauthenticated resume inputs and analysis data reside in temporary browser session memory (`sessionStorage`) and automatically vanish when the user leaves or closes the tab, guaranteeing a clean slate for returning visitors.
+  - **Roadmap Value Gate & State Stashing**: When a guest chooses to generate or track an upskilling roadmap, a seamless authentication modal saves their in-flight analysis ("state stashing"), links it to their new account, and persists the roadmap to the Supabase cloud without requiring re-upload.
+  - **Returning User CV Reusability**: Authenticated users have their active parsed CV stored securely in the cloud. Upon returning, their active resume is pre-loaded, enabling instant 1-click analysis against new job descriptions or the option to upload a revised CV.
 - 💬 **RAG-Powered AI Career Assistant**: Contextual streaming chatbot providing interactive guidance on resume tailoring, interview prep, and skill acquisition powered by empirically verified **Parent-Child hierarchical retrieval** (EXP-RAG-01: 100% Hit Rate, 0.92 F1, 93.68 Winner Score).
 
 ---
@@ -196,6 +200,28 @@ erDiagram
         string task_key "w1_t0, w2_t1, etc."
         boolean is_completed "Live checkbox state"
     }
+```
+
+### 5.2 User Lifecycle & Conversion Flow (Product-Led Growth & Ephemeral Privacy)
+
+The platform implements an anonymous-first Product-Led Growth (PLG) architecture that strictly safeguards visitor privacy while providing seamless cloud sync upon authentication:
+
+```mermaid
+flowchart TD
+    Guest["👤 Anonymous Guest"] -->|"Upload CV + Paste JD"| InstantAnalysis["⚡ Instant Gap Analysis & ATS Score"]
+    InstantAnalysis --> CopilotChat["💬 Career Copilot Interaction (Ephemeral Session)"]
+    CopilotChat --> Leave["🚪 Closes Browser Tab ➔ Session Wiped (Clean Slate on Return)"]
+
+    InstantAnalysis -->|"Clicks 'Generate Roadmap'"| ValueGate{"🔐 Account Exists?"}
+    ValueGate -->|"No"| AuthModal["Modal: Save Progress & Unlock Roadmap\n(In-flight state stashed)"]
+    AuthModal -->|"Sign Up / Login"| AutoLink["Auto-Link Analysis & Sync Roadmap to Supabase"]
+    ValueGate -->|"Yes"| AutoLink
+
+    AutoLink --> Dashboard["🗺️ Interactive Multi-Roadmap Workspace & Tracking"]
+    Dashboard --> Return["🔄 Returns Later (Logged In)"]
+    Return --> ReusableCV["📄 Pre-loaded Active CV on File"]
+    ReusableCV -->|"Option A"| FastAnalyze["⚡ 1-Click Gap Analysis on New Target JD"]
+    ReusableCV -->|"Option B"| UpdateCV["📤 Upload Updated CV to Cloud Profile"]
 ```
 
 ---

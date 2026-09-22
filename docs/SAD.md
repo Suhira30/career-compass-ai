@@ -403,6 +403,52 @@ sequenceDiagram
 
 ---
 
+### 12.4 Product-Led Growth (PLG) User Lifecycle & Ephemeral Guest Privacy Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Guest / User
+    participant Frontend as SPA Client (StorageAdapter)
+    participant AuthModal as AuthModal (State Stash)
+    participant API as FastAPI Backend
+    participant DB as Supabase PostgreSQL
+
+    Note over User,Frontend: Phase 1: Anonymous Exploration (Zero Friction)
+    User->>Frontend: Upload CV + Paste Target JD
+    Frontend->>API: POST /api/v1/resume/upload & POST /api/v1/analysis/gap
+    API-->>Frontend: Match Score, Skill Matrix & Qualitative Assessment
+    Frontend->>Frontend: Save to sessionStorage (Ephemeral Guest Memory)
+    User->>Frontend: Chat with Career Copilot (Ephemeral Session)
+    opt Guest Exits
+        User->>Frontend: Closes Browser Tab
+        Note over Frontend: sessionStorage Cleared Automatically (Clean Slate on Return)
+    end
+
+    Note over User,Frontend: Phase 2: Roadmap Value Gate & Seamless Conversion
+    User->>Frontend: Clicks "Generate Roadmap" / "Track Milestones"
+    Frontend->>AuthModal: Open Login/Signup Modal + Stash In-flight Analysis State
+    User->>AuthModal: Sign Up or Log In (Credentials)
+    AuthModal->>DB: Authenticate via Supabase Auth
+    DB-->>AuthModal: Return Session Token + User UUID
+    AuthModal->>Frontend: Auth Success: Pop Stashed Analysis
+    Frontend->>API: POST /api/v1/roadmap/generate + POST /api/v1/roadmap/save (user_id)
+    API->>DB: Persist Profile, Target Role & Generated Roadmap
+    DB-->>API: Persisted (rdm_xxxxxxxx)
+    API-->>Frontend: Roadmap Ready
+    Frontend->>User: Display Interactive Multi-Roadmap Workspace
+
+    Note over User,Frontend: Phase 3: Returning Authenticated User Experience
+    User->>Frontend: Re-opens Career Compass AI (Logged In)
+    Frontend->>API: GET /api/v1/profile/{user_id} & GET /api/v1/roadmap/user/{user_id}
+    API->>DB: Fetch Active Profile & Tracked Roadmaps
+    DB-->>API: Active Resume Profile & Saved Roadmaps
+    API-->>Frontend: Pre-loaded Profile & Roadmaps
+    Frontend->>User: Show "Active CV on File" (1-Click Analysis or Upload Updated CV)
+```
+
+---
+
 ## 13. API Architecture
 
 All endpoints follow RESTful conventions under `/api/v1/`:
@@ -421,6 +467,8 @@ All endpoints follow RESTful conventions under `/api/v1/`:
 ## 14. Security Architecture
 
 - **PII Redaction & Isolation**: Uploaded resume files are processed in ephemeral memory buffers and deleted post-parsing unless explicit user storage is enabled.
+- **Ephemeral Guest Storage Isolation**: Unauthenticated guest exploration data (resume raw text, parsed skill matrix, and ATS score) is stored strictly in browser `sessionStorage`. When the guest closes the browser tab or navigates away, all personal data is purged automatically. No unauthenticated PII is retained in permanent `localStorage`.
+- **Authentication Value Gate & State Stashing**: Conversion moments (such as saving roadmaps or syncing across devices) trigger the authentication modal while securely preserving in-flight analysis state in client memory. Upon authentication success, state is bound to the verified `user_id` and persisted to Supabase with Row Level Security (RLS).
 - **Transport & Rest Security**: TLS 1.3 encryption for all data in transit; AES-256 for persistent database storage.
 - **Input Sanitization**: Strict HTML/script tag stripping on all JD text inputs and profile fields to prevent XSS and prompt injection attacks.
 - **API Key Protection**: Server-side API key injection for LLMs; zero client-side exposure of AI credentials.
