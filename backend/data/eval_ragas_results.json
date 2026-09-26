@@ -1,0 +1,138 @@
+{
+  "timestamp": 1790412453.1601577,
+  "summary": {
+    "Google Gemini": {
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "completed": "7/10"
+    },
+    "Groq LPU": {
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "completed": "10/10"
+    }
+  },
+  "gemini_detailed": [
+    {
+      "id": "Q01",
+      "question": "How do I structure my behavioral interview responses using the STAR method?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 8.006
+    },
+    {
+      "id": "Q02",
+      "question": "What is the estimated learning time and roadmap for Docker containerization?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 4.754
+    },
+    {
+      "id": "Q03",
+      "question": "What are the core concepts and utility types of TypeScript for JavaScript developers?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 11.184
+    },
+    {
+      "id": "Q06",
+      "question": "How does Python handle concurrency between threading, asyncio, and multiprocessing?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 15.117
+    },
+    {
+      "id": "Q07",
+      "question": "What is the difference between Cosine similarity, Dense embeddings, and RAG chunking?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 14.255
+    },
+    {
+      "id": "Q08",
+      "question": "What are the steps for back-of-the-envelope storage and QPS estimation in system design?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 3.918
+    },
+    {
+      "id": "Q09",
+      "question": "What Kubernetes resources are required to deploy a multi-service containerized app?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 3.97
+    }
+  ],
+  "groq_detailed": [
+    {
+      "id": "Q01",
+      "question": "How do I structure my behavioral interview responses using the STAR method?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.284
+    },
+    {
+      "id": "Q02",
+      "question": "What is the estimated learning time and roadmap for Docker containerization?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.144
+    },
+    {
+      "id": "Q03",
+      "question": "What are the core concepts and utility types of TypeScript for JavaScript developers?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.121
+    },
+    {
+      "id": "Q04",
+      "question": "What are the parent skills and prerequisites for Spring Boot in backend engineering?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 0.79
+    },
+    {
+      "id": "Q05",
+      "question": "When should I use Apache Kafka instead of RabbitMQ in system design?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.112
+    },
+    {
+      "id": "Q06",
+      "question": "How does Python handle concurrency between threading, asyncio, and multiprocessing?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.191
+    },
+    {
+      "id": "Q07",
+      "question": "What is the difference between Cosine similarity, Dense embeddings, and RAG chunking?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.144
+    },
+    {
+      "id": "Q08",
+      "question": "What are the steps for back-of-the-envelope storage and QPS estimation in system design?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 0.983
+    },
+    {
+      "id": "Q09",
+      "question": "What Kubernetes resources are required to deploy a multi-service containerized app?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.077
+    },
+    {
+      "id": "Q10",
+      "question": "What cost and performance trade-offs exist for database B-Tree indexing?",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.95,
+      "latency_seconds": 1.092
+    }
+  ]
+}
