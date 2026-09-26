@@ -78,24 +78,11 @@ async def generate_roadmap(request: RoadmapGenerateRequest, db: Session = Depend
         except Exception as e:
             logger.warning(f"Could not load analysis from database: {e}")
 
-    # 4. If still not found, construct a graceful fallback so candidate never gets 404
+    # 4. If still not found, raise explicit 404 error to preserve data integrity and user trust
     if not analysis:
-        from app.models.analysis import GapAnalysisResponse, SkillMatrix, QualitativeAssessment
-        analysis = GapAnalysisResponse(
-            analysis_id=request.analysis_id or f"anl_{uuid.uuid4().hex[:9]}",
-            readiness_category="Target Role Upskilling",
-            match_score_percentage=70.0,
-            skill_matrix=SkillMatrix(
-                matched_skills=["Software Engineering", "APIs", "Git"],
-                missing_skills=["Production Deployment", "Advanced LLM Orchestration", "Vector Databases"],
-                partially_available_skills=["System Design", "Cloud Infrastructure"],
-            ),
-            assessment=QualitativeAssessment(
-                summary="Target role personalized skill gap assessment.",
-                strengths=["Core engineering foundation"],
-                primary_gaps=["Production deployment and advanced AI tooling"],
-                recommended_improvements=["Build end-to-end deployed AI microservices"],
-            ),
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Skill gap analysis not found. Please complete the resume-to-job analysis first before generating your roadmap.",
         )
 
     # 5. Generate Personalized Roadmap using explicit LCEL Runnable Chain
