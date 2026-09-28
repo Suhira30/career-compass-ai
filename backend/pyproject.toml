@@ -23,7 +23,7 @@ keywords = [
   "fastapi",
   "langchain",
 ]
-license = {text = "MIT"}
+license = "MIT"
 name = "career-compass-ai-backend"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -80,3 +80,9 @@ target-version = "py311"
 [tool.black]
 line-length = 100
 target-version = ['py311']
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["data*", "scripts*", "tests*"]
+
