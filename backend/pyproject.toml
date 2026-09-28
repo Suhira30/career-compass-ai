@@ -25,7 +25,7 @@ keywords = [
 ]
 license = {text = "MIT"}
 name = "career-compass-ai-backend"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.11"
 version = "1.0.0"
 
