@@ -6,9 +6,47 @@ warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import asyncio
+import logging
 import time
+from contextlib import asynccontextmanager
+
 from app.core import settings
 from app.core.llm_provider_key import set_request_gemini_key, LLMQuotaExhaustedException
+
+logger = logging.getLogger(__name__)
+
+
+async def _database_keepalive_loop():
+    """
+    Periodic background heartbeat to keep database connection warm and active,
+    preventing cloud databases from going idle or pausing. Runs every 24 hours.
+    """
+    logger.info("Database keep-alive heartbeat worker registered (interval: 24h).")
+    # Wait 15 seconds after server startup before first ping
+    await asyncio.sleep(15)
+    while True:
+        try:
+            from sqlalchemy import text
+            from app.db.session import engine
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            logger.info("Database keep-alive ping successful (SELECT 1). Activity refreshed.")
+        except Exception as exc:
+            logger.debug(f"Database keep-alive ping attempt: {exc}")
+
+        # Sleep for 24 hours (86,400 seconds)
+        await asyncio.sleep(86400)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    keepalive_task = asyncio.create_task(_database_keepalive_loop())
+    try:
+        yield
+    finally:
+        keepalive_task.cancel()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -17,6 +55,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # Configure CORS Middleware using settings.CORS_ORIGINS

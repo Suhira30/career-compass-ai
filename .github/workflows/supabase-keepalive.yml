@@ -1,0 +1,29 @@
+name: Supabase Database Keep-Alive
+
+on:
+  schedule:
+    # Runs every 3 days at 06:00 UTC (well within Supabase's 7-day pause window)
+    - cron: '0 6 */3 * *'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub Actions UI
+
+jobs:
+  keepalive:
+    name: Ping Supabase Database & REST API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST Endpoint
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://hvptbsolhdycbnaizjlf.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2cHRic29saGR5Y2JuYWl6amxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MDkzNDEsImV4cCI6MjEwNDA4NTM0MX0.XsTxnM2nj5BzE6XH_bSvgxqGQuLhBuF2ZlFAvHyZoK8' }}
+        run: |
+          echo "Sending keep-alive heartbeat to Supabase: $SUPABASE_URL"
+          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/")
+          echo "Supabase HTTP Response Code: $RESPONSE_CODE"
+          if [ "$RESPONSE_CODE" -ge 200 ] && [ "$RESPONSE_CODE" -lt 500 ]; then
+            echo "✅ Supabase keep-alive ping successful! Inactivity timer reset."
+          else
+            echo "⚠️ Note: Response code $RESPONSE_CODE received."
+          fi
