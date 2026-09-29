@@ -42,22 +42,22 @@ def extract_structured_data(
                 return _try_groq_extraction(system_prompt, raw_text, schema_class)
             elif provider == "openai":
                 return _try_openai_extraction(system_prompt, raw_text, schema_class)
-        except LLMQuotaExhaustedException:
-            # Immediate BYOK trigger: Prompt user for their free Gemini key
-            raise
         except Exception as exc:
-            if is_quota_exhausted_error(exc):
-                raise LLMQuotaExhaustedException(
-                    message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
-                ) from exc
             err_msg = f"{provider.capitalize()} failed: {str(exc) or repr(exc)}"
-            logger.warning(f"{task_name} - {err_msg}")
+            logger.warning(f"{task_name} - {err_msg}. Failing over to next provider...")
             errors.append(err_msg)
+            continue
 
-    # If any failure was due to rate limits or credit exhaustion, trigger BYOK modal
+    # If all providers failed, check if we can do a brief cooldown retry on Gemini
     if any(is_quota_exhausted_error(Exception(e)) for e in errors):
+        logger.info(f"Initial providers hit rate limits. Checking for Gemini availability after failover attempt...")
+        try:
+            return _try_gemini_extraction(system_prompt, raw_text, schema_class)
+        except Exception:
+            pass
+
         raise LLMQuotaExhaustedException(
-            message=f"AI model quota for {task_name.lower()} is exhausted. Please supply your own free Gemini API key to proceed."
+            message=f"AI model quota for {task_name.lower()} is exhausted on all free providers. Please supply your own free Gemini API key to proceed."
         )
 
     full_error_details = " | ".join(errors)
@@ -178,11 +178,9 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
         except Exception as exc:
             last_err = exc
             if is_quota_exhausted_error(exc):
-                logger.warning(f"Gemini API quota exhausted on candidate '{model_name}': {exc}. Halting to prompt for user API key.")
-                raise LLMQuotaExhaustedException(
-                    message="Your Gemini API quota has been exhausted. Please supply your own free Gemini API key to proceed."
-                ) from exc
-            logger.warning(f"Gemini candidate '{model_name}' failed: {exc}. Retrying next candidate...")
+                logger.warning(f"Gemini API quota/rate limit reached on candidate '{model_name}'.")
+            else:
+                logger.warning(f"Gemini candidate '{model_name}' failed: {exc}. Retrying next candidate...")
             continue
 
     # Phase 2: Self-Healing Recovery (Triggered dynamically ONLY if all known models fail)
@@ -209,11 +207,14 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
             last_err = exc
             if is_quota_exhausted_error(exc):
                 logger.warning(f"Discovered Gemini candidate '{model_name}' hit rate limit: {exc}")
-                raise LLMQuotaExhaustedException(
-                    message="Your Gemini API quota has been exhausted. Please supply your own free Gemini API key to proceed."
-                ) from exc
-            logger.warning(f"Discovered Gemini candidate '{model_name}' failed: {exc}")
+            else:
+                logger.warning(f"Discovered Gemini candidate '{model_name}' failed: {exc}")
             continue
+
+    if last_err and is_quota_exhausted_error(last_err):
+        raise LLMQuotaExhaustedException(
+            message="Your Gemini API quota has been exhausted. Please supply your own free Gemini API key to proceed."
+        ) from last_err
 
     raise last_err or RuntimeError("All Gemini model candidates failed.")
 
