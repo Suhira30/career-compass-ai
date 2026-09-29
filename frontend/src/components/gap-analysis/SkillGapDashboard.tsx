@@ -13,7 +13,6 @@ export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
   analysisData,
   onNavigateRoadmap,
   onNavigateCopilot,
-  onNavigateGalaxy,
   onOpenCoverLetter,
 }) => {
   if (!analysisData) {
