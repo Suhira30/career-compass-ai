@@ -101,15 +101,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="flex items-center gap-3 relative">
               <UserNavPill />
 
-              <button
-                type="button"
-                onClick={handleQuickAnalyze}
-                className="hidden sm:flex px-4 py-2 rounded-full glass-pill text-xs font-semibold text-white items-center gap-2 hover:bg-white/25 transition-all border border-white/30 shadow-sm"
-              >
-                <span>Analyze Resume</span>
-                <span className="w-4 h-4 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center text-[9px] font-bold">↗</span>
-              </button>
-
               {/* Glass Menu Toggle Button (Top Right) */}
               <button
                 id="glassMenuBtn"

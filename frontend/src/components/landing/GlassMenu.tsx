@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 
 const MENU_ITEMS = [
   { label: 'Overview', href: '#home' },
-  { label: 'Gap Analysis', href: '#gap' },
+  { label: 'Find Gap', href: '#gap' },
   { label: 'Learning Roadmap', href: '#roadmap' },
   { label: 'Career Copilot', href: '#advisor' },
 ];
