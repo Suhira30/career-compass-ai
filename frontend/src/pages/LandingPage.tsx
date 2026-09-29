@@ -146,10 +146,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={handleQuickAnalyze}
-              className="group px-7 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold text-sm flex items-center gap-3 shadow-2xl shadow-cyan-500/25 hover:shadow-cyan-400/40 hover:scale-[1.03] active:scale-[0.98] transition-all whitespace-nowrap cursor-pointer"
+              className="group px-7 py-3.5 rounded-2xl glass-pill bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/30 hover:border-cyan-400/60 text-white font-semibold text-sm flex items-center gap-3 shadow-xl shadow-cyan-500/10 hover:shadow-cyan-400/25 hover:scale-[1.03] active:scale-[0.98] transition-all whitespace-nowrap cursor-pointer"
             >
-              <span>Get Started</span>
-              <span className="w-6 h-6 rounded-full bg-slate-950 text-cyan-400 flex items-center justify-center text-xs group-hover:translate-x-0.5 transition-transform font-bold">
+              <span className="tracking-wide">Get Started</span>
+              <span className="w-6 h-6 rounded-full bg-cyan-400/20 border border-cyan-300/40 text-cyan-300 flex items-center justify-center text-xs group-hover:translate-x-0.5 group-hover:bg-cyan-400 group-hover:text-slate-950 transition-all font-bold">
                 →
               </span>
             </button>
