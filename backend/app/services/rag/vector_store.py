@@ -48,17 +48,17 @@ def get_embedding_model():
 def get_vector_store():
     """
     Returns initialized Vector Store client instance.
-    Checks for Pinecone Cloud API Key first; falls back to local ChromaDB directory.
+    Checks for Pinecone Cloud API Key first; falls back to populated local ChromaDB directory.
+    Returns None immediately if neither vector store source is available.
     """
     global _vector_store
     if _vector_store is not None:
         return _vector_store
 
-    embeddings_model = get_embedding_model()
-
     # 1. Primary: Pinecone Cloud Serverless
     if settings.PINECONE_API_KEY and settings.PINECONE_INDEX_NAME:
         try:
+            embeddings_model = get_embedding_model()
             from langchain_pinecone import PineconeVectorStore
             logger.info(f"Connecting to Pinecone Cloud Serverless (Index: '{settings.PINECONE_INDEX_NAME}')...")
             os.environ["PINECONE_API_KEY"] = settings.PINECONE_API_KEY
@@ -68,23 +68,27 @@ def get_vector_store():
             )
             return _vector_store
         except Exception as exc:
-            logger.warning(f"Pinecone Cloud connection failed ({exc}). Falling back to local ChromaDB.")
+            logger.warning(f"Pinecone Cloud connection failed ({exc}). Checking local ChromaDB.")
 
-    # 2. Fallback / Local: ChromaDB
-    try:
-        from langchain_community.vectorstores import Chroma
-        persist_dir = settings.VECTOR_DB_DIR
-        Path(persist_dir).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Initializing local ChromaDB vector store at '{persist_dir}'...")
-        _vector_store = Chroma(
-            collection_name="career_compass_knowledge",
-            embedding_function=embeddings_model,
-            persist_directory=persist_dir,
-        )
-        return _vector_store
-    except Exception as exc:
-        logger.error(f"Local ChromaDB initialization failed: {exc}")
-        raise RuntimeError(f"Vector store initialization error: {exc}") from exc
+    # 2. Fallback / Local: Populated ChromaDB only
+    persist_dir = settings.VECTOR_DB_DIR
+    persist_path = Path(persist_dir)
+    if persist_path.exists() and any(persist_path.iterdir()):
+        try:
+            embeddings_model = get_embedding_model()
+            from langchain_community.vectorstores import Chroma
+            logger.info(f"Initializing local ChromaDB vector store at '{persist_dir}'...")
+            _vector_store = Chroma(
+                collection_name="career_compass_knowledge",
+                embedding_function=embeddings_model,
+                persist_directory=persist_dir,
+            )
+            return _vector_store
+        except Exception as exc:
+            logger.warning(f"Local ChromaDB initialization failed: {exc}")
+
+    logger.info("No active Pinecone credentials or populated ChromaDB directory found. Operating in direct grounded LLM mode.")
+    return None
 
 
 def similarity_search_with_score(query: str, k: int = 5) -> List[tuple[Document, float]]:
@@ -94,6 +98,8 @@ def similarity_search_with_score(query: str, k: int = 5) -> List[tuple[Document,
     """
     try:
         vs = get_vector_store()
+        if not vs:
+            return []
         return vs.similarity_search_with_score(query, k=k)
     except Exception as exc:
         logger.error(f"Vector search failed for query '{query}': {exc}")

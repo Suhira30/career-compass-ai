@@ -9,10 +9,14 @@ from app.services.rag.chat_chain import (
     invoke_chat_chain,
     stream_chat_chain,
     format_candidate_context,
+    async_format_candidate_context,
 )
 from app.core.llm_provider_key import LLMQuotaExhaustedException
 from app.api.v1.analysis import analysis_db
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["Streaming RAG AI Career Assistant"])
 
@@ -38,12 +42,12 @@ async def chat_message(request: ChatMessageInput):
 
     session_history = chat_sessions_db[session_id]
 
-    # 2. Resolve Candidate Context from analysis_id if provided
+    # 2. Resolve Candidate Context from analysis_id if provided (non-blocking with 2.5s safe timeout)
     analysis = None
     if request.analysis_id and request.analysis_id in analysis_db:
         analysis = analysis_db[request.analysis_id]
 
-    context_str = format_candidate_context(
+    context_str = await async_format_candidate_context(
         analysis=analysis,
         session_history=session_history,
         user_message=request.message,
@@ -57,6 +61,8 @@ async def chat_message(request: ChatMessageInput):
         async def event_generator():
             full_response_chunks = []
             try:
+                # Send immediate heartbeat so Cloudflare proxy opens stream without buffering
+                yield ""
                 async for token in stream_chat_chain(request.message, context_str):
                     full_response_chunks.append(token)
                     yield token
@@ -68,8 +74,19 @@ async def chat_message(request: ChatMessageInput):
                 err_msg = q_exc.detail.get("message", "API quota exceeded. Please provide a new or refreshed Gemini API key.")
                 yield f"\n\n[ERROR_LLM_QUOTA_EXHAUSTED]: {err_msg}\n\n"
                 return
+            except Exception as exc:
+                logger.error(f"Chat stream error: {exc}", exc_info=True)
+                yield "\n\nAn unexpected error occurred while streaming the response. Please try again."
 
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     # 5. Handle Standard Synchronous Response
     response_payload = invoke_chat_chain(

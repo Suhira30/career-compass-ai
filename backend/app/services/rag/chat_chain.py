@@ -5,6 +5,7 @@ Integrates candidate gap analysis context with RAG Vector Store search (Pinecone
 for grounded, personalized career advice.
 """
 
+import asyncio
 import logging
 from typing import List, AsyncGenerator, Dict, Any, Optional
 from langchain_core.prompts import ChatPromptTemplate
@@ -69,13 +70,14 @@ def condense_query_with_history(
     return user_message
 
 
-def format_candidate_context(
+async def async_format_candidate_context(
     analysis: Optional[GapAnalysisResponse] = None,
     session_history: Optional[List[Dict[str, str]]] = None,
     user_message: str = "",
 ) -> str:
     """
-    Formats candidate gap analysis details, recent chat history, and RAG Vector Store search snippets into prompt context.
+    Asynchronously formats candidate gap analysis details, recent chat history, and RAG Vector Store search snippets.
+    Guarantees non-blocking execution with a strict 2.5-second timeout on vector retrieval.
     """
     parts = []
     
@@ -87,7 +89,46 @@ def format_candidate_context(
         parts.append(f"Partially Available Skills: {', '.join(analysis.skill_matrix.partially_available_skills) if analysis.skill_matrix.partially_available_skills else 'None'}")
         parts.append(f"Recommended Improvements: {', '.join(analysis.assessment.recommended_improvements)}")
 
-    # 2. RAG Vector Search Knowledge Base Context Retrieval (Parent-Child 3A-K5)
+    # 2. Non-blocking RAG Vector Search with 2.5s Timeout
+    if user_message:
+        try:
+            retrieval_query = condense_query_with_history(user_message, session_history)
+            kb_context = await asyncio.wait_for(
+                asyncio.to_thread(search_relevant_context, retrieval_query, 5),
+                timeout=2.5,
+            )
+            if kb_context:
+                parts.append(f"\nRetrieved Domain Knowledge Base Context (Parent-Child 3A-K5):\n{kb_context}")
+        except asyncio.TimeoutError:
+            logger.warning("RAG vector search timed out after 2.5s; proceeding with candidate profile context.")
+        except Exception as exc:
+            logger.warning(f"RAG vector search skipped/failed: {exc}")
+
+    # 3. Conversation History
+    if session_history:
+        parts.append("\nRecent Conversation History:")
+        for turn in session_history[-4:]:
+            parts.append(f"{turn['role'].capitalize()}: {turn['content']}")
+
+    return "\n".join(parts) if parts else "No prior candidate analysis context available."
+
+
+def format_candidate_context(
+    analysis: Optional[GapAnalysisResponse] = None,
+    session_history: Optional[List[Dict[str, str]]] = None,
+    user_message: str = "",
+) -> str:
+    """
+    Synchronous fallback formatting.
+    """
+    parts = []
+    if analysis:
+        parts.append(f"Candidate Match Category: {analysis.readiness_category} ({analysis.match_score_percentage}%)")
+        parts.append(f"Matched Skills: {', '.join(analysis.skill_matrix.matched_skills) if analysis.skill_matrix.matched_skills else 'None'}")
+        parts.append(f"Missing Skills: {', '.join(analysis.skill_matrix.missing_skills) if analysis.skill_matrix.missing_skills else 'None'}")
+        parts.append(f"Partially Available Skills: {', '.join(analysis.skill_matrix.partially_available_skills) if analysis.skill_matrix.partially_available_skills else 'None'}")
+        parts.append(f"Recommended Improvements: {', '.join(analysis.assessment.recommended_improvements)}")
+
     if user_message:
         try:
             retrieval_query = condense_query_with_history(user_message, session_history)
@@ -97,10 +138,9 @@ def format_candidate_context(
         except Exception as exc:
             logger.warning(f"RAG vector search skipped/failed: {exc}")
 
-    # 3. Conversation History
     if session_history:
         parts.append("\nRecent Conversation History:")
-        for turn in session_history[-4:]:  # Include last 4 messages
+        for turn in session_history[-4:]:
             parts.append(f"{turn['role'].capitalize()}: {turn['content']}")
 
     return "\n".join(parts) if parts else "No prior candidate analysis context available."
