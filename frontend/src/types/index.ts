@@ -132,3 +132,29 @@ export interface TrackedRoadmapItem {
   roadmap_data: RoadmapGenerateResponse;
   completed_tasks: Record<string, boolean>;
 }
+
+export interface MatchingProject {
+  title: string;
+  description?: string;
+}
+
+export interface CoverLetterRequest {
+  candidate_name?: string;
+  target_role: string;
+  company_name?: string;
+  job_description?: string;
+  matched_skills?: string[];
+  missing_skills?: string[];
+  projects?: MatchingProject[];
+  work_experience_summary?: string;
+  generation_type?: 'cover_letter' | 'application_email' | 'recruiter_email';
+  tone?: 'confident' | 'formal' | 'enthusiastic' | 'concise';
+}
+
+export interface CoverLetterResponse {
+  generation_type: 'cover_letter' | 'application_email' | 'recruiter_email' | string;
+  subject_line?: string;
+  content: string;
+  matching_projects_highlighted: string[];
+  key_strengths_referenced: string[];
+}

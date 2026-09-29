@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import {
+    CoverLetterRequest,
+    CoverLetterResponse,
     GapAnalysisResponse,
     JobExtractResponse,
     ResumeUploadResponse,
@@ -177,6 +179,12 @@ export const apiService = {
 
   async deleteRoadmap(roadmapId: string): Promise<{ status: string }> {
     const response = await apiClient.delete(`/roadmap/${roadmapId}`);
+    return response.data;
+  },
+
+  // 7. Cover Letter & Outreach Generation
+  async generateCoverLetter(data: CoverLetterRequest): Promise<CoverLetterResponse> {
+    const response = await apiClient.post<CoverLetterResponse>('/cover-letter/generate', data);
     return response.data;
   },
 };

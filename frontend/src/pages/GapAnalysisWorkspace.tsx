@@ -5,6 +5,7 @@ import { InteractiveAnalyzeButton } from '../components/gap-analysis/Interactive
 import { JobDescriptionInput, SAMPLE_AI_JD } from '../components/gap-analysis/JobDescriptionInput';
 import { ResumeUploader } from '../components/gap-analysis/ResumeUploader';
 import { SkillGapDashboard } from '../components/gap-analysis/SkillGapDashboard';
+import { CoverLetterModal } from '../components/cover-letter/CoverLetterModal';
 import { useAuth } from '../context/AuthContext';
 import { apiService, parseApiError } from '../services/api';
 import {
@@ -70,6 +71,8 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
   const [analysisData, setAnalysisData] = useState<GapAnalysisResponse | null>(() => {
     return storageAdapter.getAnalysisData(Boolean(user), user?.id);
   });
+
+  const [isCoverLetterModalOpen, setIsCoverLetterModalOpen] = useState<boolean>(false);
 
   // Fetch Cloud Profile for returning authenticated users
   useEffect(() => {
@@ -532,8 +535,22 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
           }}
           onNavigateCopilot={onNavigateCopilot}
           onNavigateGalaxy={onNavigateGalaxy}
+          onOpenCoverLetter={() => setIsCoverLetterModalOpen(true)}
         />
       </main>
+
+      {/* Global AI Cover Letter & Outreach Modal */}
+      <CoverLetterModal
+        isOpen={isCoverLetterModalOpen}
+        onClose={() => setIsCoverLetterModalOpen(false)}
+        candidateName={userCloudProfile?.full_name || user?.name || undefined}
+        targetRole={jobTitle || 'Target Opportunity'}
+        companyName={undefined}
+        jobDescription={rawJd}
+        matchedSkills={analysisData?.skill_matrix?.matched_skills || []}
+        missingSkills={analysisData?.skill_matrix?.missing_skills || []}
+        projects={extractedResume?.extracted_data?.projects || []}
+      />
 
       {/* ================= FOOTER ================= */}
       <footer className="max-w-7xl w-full mx-auto pt-6 mt-8 border-t border-white/10 flex items-center justify-between text-xs text-white/40">

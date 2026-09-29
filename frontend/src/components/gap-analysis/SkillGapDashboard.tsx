@@ -6,6 +6,7 @@ interface SkillGapDashboardProps {
   onNavigateRoadmap?: (gaps: string[], analysisId?: string) => void;
   onNavigateCopilot?: () => void;
   onNavigateGalaxy?: () => void;
+  onOpenCoverLetter?: () => void;
 }
 
 export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
@@ -13,6 +14,7 @@ export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
   onNavigateRoadmap,
   onNavigateCopilot,
   onNavigateGalaxy,
+  onOpenCoverLetter,
 }) => {
   if (!analysisData) {
     return (
@@ -273,14 +275,24 @@ export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
                 Practice tailored STAR interview questions and draft a high-impact cover letter for this role.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onNavigateCopilot}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
-            >
-              <span>Start Practice</span>
-              <span>→</span>
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={onOpenCoverLetter}
+                className="w-full py-2.5 rounded-xl glass-pill bg-white/10 hover:bg-white/20 border border-white/25 hover:border-cyan-400/50 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+              >
+                <span>✉️</span>
+                <span>Draft Cover Letter & Outreach</span>
+              </button>
+              <button
+                type="button"
+                onClick={onNavigateCopilot}
+                className="w-full py-2 rounded-xl bg-gradient-to-r from-purple-500/80 to-indigo-600/80 hover:opacity-100 text-white/90 hover:text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span>Practice STAR Questions</span>
+                <span>→</span>
+              </button>
+            </div>
           </div>
 
           {/* Column 3: Explore Career Galaxy */}
