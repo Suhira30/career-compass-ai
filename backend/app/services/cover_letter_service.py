@@ -31,11 +31,18 @@ Your objective is to craft persuasive, high-conversion job application materials
 
 Core Guidelines:
 1. Grounding in Projects: You MUST explicitly integrate the candidate's matching projects, citing specific technical details, architecture decisions, or measurable impact from their descriptions.
-2. Skill Alignment: Seamlessly weave the matched skills into the narrative without sounding like a keyword checklist.
-3. Tone Fidelity: Strictly follow the requested tone (e.g. confident and direct, formal and traditional, enthusiastic, or concise).
-4. No Generic Filler: Avoid cliches like "I am writing to express my interest..." or "I am a hard worker." Open with a compelling hook demonstrating competence and relevance.
-5. Missing Skills (if any): Frame any mentioned gaps constructively around active upskilling, rapid learning velocity, or transferable concepts.
-6. Email Formats: If generating an email ('recruiter_email' or 'application_email'), format the very first line as:
+2. Academic Grounding: Always mention where the candidate graduated from (their university / institution) and their degree. If a CGPA or highest SGPA is provided, seamlessly reference this strong academic track record to substantiate engineering discipline.
+3. Skill Alignment: Seamlessly weave the matched skills into the narrative without sounding like a keyword checklist.
+4. Tone Fidelity: Strictly follow the requested tone (e.g. confident and direct, formal and traditional, enthusiastic, or concise).
+5. No Generic Filler: Avoid cliches like "I am writing to express my interest..." or "I am a hard worker." Open with a compelling hook demonstrating competence and relevance.
+6. Missing Skills (if any): Frame any mentioned gaps constructively around active upskilling, rapid learning velocity, or transferable concepts.
+7. Sign-off & Real Contact Details: Conclude the document with:
+   Best regards,
+
+   {candidate_name}
+   {signoff_contacts}
+   CRITICAL: NEVER output generic bracket placeholders like '[Contact Information / LinkedIn / GitHub]' or '[Phone]'. Only output real contact details if provided; otherwise, just the candidate's name.
+8. Email Formats: If generating an email ('recruiter_email' or 'application_email'), format the very first line as:
    Subject: <Compelling, ATS-Friendly Subject Line>
    Followed by a blank line, then the email body.
 """
@@ -44,6 +51,9 @@ USER_PROMPT_TEMPLATE = """
 Candidate Name: {candidate_name}
 Target Role: {target_role}
 Target Company: {company_name}
+
+Candidate Academic & University Background:
+{academic_str}
 
 Candidate Matched Skills:
 {matched_skills_str}
@@ -57,16 +67,60 @@ Candidate Background & Experience Highlights:
 Target Job Description / Key Requirements:
 {job_description_str}
 
+Candidate Contact Details to Include in Sign-off:
+{signoff_contacts_str}
+
 Document Type to Generate: {generation_type}
 Desired Tone: {tone}
 
 Instructions for Document Type:
-- 'cover_letter': Write a persuasive 3 to 4 paragraph letter connecting the candidate's matching projects and matched skills directly to the employer's needs. Include a professional sign-off.
-- 'application_email': Write a polished, professional email (150-220 words) accompanying a resume submission. Include a crisp subject line, 2-3 focused paragraphs spotlighting a flagship project, and call to action.
+- 'cover_letter': Write a persuasive 3 to 4 paragraph letter connecting the candidate's matching projects, academic foundation, and matched skills directly to the employer's needs. Include professional sign-off with provided contact details.
+- 'application_email': Write a polished, professional email (150-220 words) accompanying a resume submission. Include a crisp subject line, 2-3 focused paragraphs spotlighting a flagship project and degree background, and call to action.
 - 'recruiter_email': Write a high-response cold outreach email or LinkedIn InMail (100-140 words). Include a compelling subject line, hook, brief reference to a matching project, and a low-friction question or call to action.
 
 Generate the complete document now.
 """
+
+
+def _format_contact_signoff(request: CoverLetterRequest) -> str:
+    """
+    Builds clean, professional contact details to place directly underneath the candidate's name.
+    Omits missing lines cleanly without generic bracket placeholders.
+    """
+    lines = []
+    contact_parts = []
+    if request.phone:
+        contact_parts.append(request.phone.strip())
+    if request.email:
+        contact_parts.append(request.email.strip())
+    if contact_parts:
+        lines.append(" • ".join(contact_parts))
+
+    links = []
+    if request.linkedin_url:
+        links.append(f"LinkedIn: {request.linkedin_url.strip()}")
+    if request.github_url:
+        links.append(f"GitHub: {request.github_url.strip()}")
+    if request.portfolio_url:
+        links.append(f"Portfolio: {request.portfolio_url.strip()}")
+    if links:
+        lines.append(" | ".join(links))
+
+    return "\n".join(lines)
+
+
+def _format_academic_summary(request: CoverLetterRequest) -> str:
+    parts = []
+    if request.institution:
+        deg = f" with a degree in {request.degree.strip()}" if request.degree else ""
+        parts.append(f"Graduated from {request.institution.strip()}{deg}")
+    elif request.degree:
+        parts.append(f"Degree: {request.degree.strip()}")
+
+    if request.gpa:
+        parts.append(f"Academic Standing / CGPA / SGPA: {request.gpa.strip()}")
+
+    return ". ".join(parts) if parts else "Solid foundational technical background."
 
 
 def _format_projects(request: CoverLetterRequest) -> str:
@@ -113,40 +167,56 @@ def _generate_fallback(request: CoverLetterRequest) -> CoverLetterResponse:
     
     project_text = "; and ".join(project_highlights) if project_highlights else "hands-on production engineering workflows"
 
+    # Academic narrative insertion
+    edu_text = ""
+    if request.institution:
+        deg_str = f" with a {request.degree}" if request.degree else ""
+        gpa_str = f" (Academic CGPA: {request.gpa})" if request.gpa else ""
+        edu_text = f"Graduating from {request.institution}{deg_str}{gpa_str}, I established strong fundamentals in computer science and scalable systems. "
+
+    signoff_lines = [f"Best regards,\n{name}"]
+    contacts = _format_contact_signoff(request)
+    if contacts:
+        signoff_lines.append(contacts)
+    full_signoff = "\n".join(signoff_lines)
+
     if request.generation_type == "recruiter_email":
         subject = f"Connecting regarding {role} opening at {company}"
         content = (
             f"Hi there,\n\n"
             f"I came across the {role} opportunity at {company} and wanted to reach out directly. "
+            f"{edu_text}"
             f"With a strong foundation in {skills_str}, I recently completed {project_text}, "
             f"delivering resilient, scalable architectures that align closely with what {company} is building.\n\n"
             f"Given your focus on high-impact engineering, I would value the chance to learn more about your current technical roadmap. "
             f"Do you have 10 minutes next week for a brief conversation?\n\n"
-            f"Best regards,\n{name}"
+            f"{full_signoff}"
         )
     elif request.generation_type == "application_email":
         subject = f"Application for {role} - {name}"
         content = (
             f"Dear Hiring Team,\n\n"
             f"Please accept this application for the {role} position at {company}. "
+            f"{edu_text}"
             f"My technical background centers on {skills_str}, complemented by real-world system implementations like {project_text}.\n\n"
             f"I have attached my resume detailing my accomplishments and technical proficiencies. "
             f"I am eager to discuss how my hands-on background and rapid learning velocity will add immediate value to {company}.\n\n"
             f"Thank you for your time and consideration.\n\n"
-            f"Sincerely,\n{name}"
+            f"{full_signoff}"
         )
     else:  # cover_letter
         subject = None
         content = (
             f"Dear Hiring Manager,\n\n"
             f"I am writing to express my strong interest in the {role} role at {company}. "
+            f"{edu_text}"
             f"With targeted expertise in {skills_str}, I combine deep technical problem solving with a commitment to engineering excellence and measurable business outcomes.\n\n"
             f"A core demonstration of my technical capabilities is my work on {project_text}. "
             f"Through this initiative, I solved complex engineering challenges, architected modular components, and ensured reliability under production demands—standards I am enthusiastic to bring to {company}.\n\n"
             f"What attracts me most to {company} is your technical rigor and drive for innovation. "
             f"My background equips me to make immediate contributions while continuously expanding my technical scope to meet your team's objectives.\n\n"
             f"Thank you for reviewing my qualifications. I welcome the opportunity to discuss how my skill set and project track record align with your hiring goals.\n\n"
-            f"Sincerely,\n{name}"
+            f"{full_signoff}"
         )
 
     return CoverLetterResponse(
@@ -168,6 +238,8 @@ def generate_cover_letter(request: CoverLetterRequest) -> CoverLetterResponse:
     projects_str = _format_projects(request)
     experience_str = request.work_experience_summary or "Proven technical contributions across software systems."
     job_description_str = request.job_description[:1200] if request.job_description else f"Requirements for {request.target_role} role."
+    academic_str = _format_academic_summary(request)
+    signoff_contacts_str = _format_contact_signoff(request) or "None provided (use candidate name only)"
 
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
@@ -178,10 +250,12 @@ def generate_cover_letter(request: CoverLetterRequest) -> CoverLetterResponse:
         "candidate_name": candidate_name,
         "target_role": request.target_role,
         "company_name": company_name,
+        "academic_str": academic_str,
         "matched_skills_str": matched_skills_str,
         "projects_str": projects_str,
         "experience_str": experience_str,
         "job_description_str": job_description_str,
+        "signoff_contacts_str": signoff_contacts_str,
         "generation_type": request.generation_type,
         "tone": request.tone,
     }

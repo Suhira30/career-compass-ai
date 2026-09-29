@@ -20,6 +20,16 @@ class CoverLetterRequest(BaseModel):
     missing_skills: List[str] = Field(default_factory=list, description="Target skills to proactively address or highlight willingness to master", example=["Kubernetes", "Kafka"])
     projects: List[MatchingProject] = Field(default_factory=list, description="Matching candidate projects with technical achievements")
     work_experience_summary: Optional[str] = Field(None, description="Highlights from prior roles")
+    # Academic & University Details (Optional)
+    institution: Optional[str] = Field(None, description="University or college graduated from", example="University of Moratuwa")
+    degree: Optional[str] = Field(None, description="Degree or program title", example="B.Sc. (Hons) in Computer Science & Engineering")
+    gpa: Optional[str] = Field(None, description="Optional CGPA or highest SGPA / Academic standing", example="3.85 / 4.0")
+    # Contact Details for Professional Sign-off
+    email: Optional[str] = Field(None, description="Candidate email address", example="alex.dev@gmail.com")
+    phone: Optional[str] = Field(None, description="Candidate phone number", example="+1 (555) 234-5678")
+    linkedin_url: Optional[str] = Field(None, description="Candidate LinkedIn URL", example="https://linkedin.com/in/alexdev")
+    github_url: Optional[str] = Field(None, description="Candidate GitHub URL", example="https://github.com/alexdev")
+    portfolio_url: Optional[str] = Field(None, description="Candidate portfolio website URL", example="https://alexdev.io")
     generation_type: str = Field(
         default="cover_letter",
         description="Type of generation: 'cover_letter', 'application_email', or 'recruiter_email'"

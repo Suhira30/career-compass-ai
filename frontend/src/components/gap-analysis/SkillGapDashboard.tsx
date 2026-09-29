@@ -261,7 +261,7 @@ export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
             </button>
           </div>
 
-          {/* Column 2: Prepare Interview & Cover Letter */}
+          {/* Column 2: Career Copilot */}
           <div className="glass-pill-dark rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-purple-400/50 hover:bg-white/[0.08] transition-all border border-white/15">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
@@ -270,51 +270,41 @@ export const SkillGapDashboard: React.FC<SkillGapDashboardProps> = ({
                   AI Copilot
                 </span>
               </div>
-              <h4 className="text-sm font-bold text-white">Interview Practice & Cover Letter</h4>
+              <h4 className="text-sm font-bold text-white">Career Copilot</h4>
               <p className="text-xs text-white/65 leading-relaxed">
-                Practice tailored STAR interview questions and draft a high-impact cover letter for this role.
-              </p>
-            </div>
-            <div className="space-y-2 pt-1">
-              <button
-                type="button"
-                onClick={onOpenCoverLetter}
-                className="w-full py-2.5 rounded-xl glass-pill bg-white/10 hover:bg-white/20 border border-white/25 hover:border-cyan-400/50 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
-              >
-                <span>✉️</span>
-                <span>Draft Cover Letter & Outreach</span>
-              </button>
-              <button
-                type="button"
-                onClick={onNavigateCopilot}
-                className="w-full py-2 rounded-xl bg-gradient-to-r from-purple-500/80 to-indigo-600/80 hover:opacity-100 text-white/90 hover:text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-              >
-                <span>Practice STAR Questions</span>
-                <span>→</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Column 3: Explore Career Galaxy */}
-          <div className="glass-pill-dark rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-emerald-400/50 hover:bg-white/[0.08] transition-all border border-white/15">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-2xl">✦</span>
-                <span className="glass-pill px-2.5 py-0.5 rounded-full text-emerald-300 font-bold text-[11px] border border-emerald-400/30">
-                  Career Galaxy
-                </span>
-              </div>
-              <h4 className="text-sm font-bold text-white">Explore Career Galaxy</h4>
-              <p className="text-xs text-white/65 leading-relaxed">
-                Explore adjacent roles and career paths in the interactive 3D vector space.
+                Practice tailored STAR interview questions and receive contextual career guidance for this role.
               </p>
             </div>
             <button
               type="button"
-              onClick={onNavigateGalaxy}
+              onClick={onNavigateCopilot}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+            >
+              <span>Career Copilot</span>
+              <span>→</span>
+            </button>
+          </div>
+
+          {/* Column 3: Cover Letter & Outreach */}
+          <div className="glass-pill-dark rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-emerald-400/50 hover:bg-white/[0.08] transition-all border border-white/15">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-2xl">✉️</span>
+                <span className="glass-pill px-2.5 py-0.5 rounded-full text-emerald-300 font-bold text-[11px] border border-emerald-400/30">
+                  Cover Letter
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-white">Cover Letter & Outreach</h4>
+              <p className="text-xs text-white/65 leading-relaxed">
+                Draft high-impact, ATS-optimized cover letters and recruiter outreach highlighting your matching projects.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenCoverLetter}
               className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
             >
-              <span>Explore Roles</span>
+              <span>Draft Cover Letter & Outreach</span>
               <span>→</span>
             </button>
           </div>

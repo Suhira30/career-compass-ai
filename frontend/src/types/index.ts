@@ -147,6 +147,14 @@ export interface CoverLetterRequest {
   missing_skills?: string[];
   projects?: MatchingProject[];
   work_experience_summary?: string;
+  institution?: string;
+  degree?: string;
+  gpa?: string;
+  email?: string;
+  phone?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
   generation_type?: 'cover_letter' | 'application_email' | 'recruiter_email';
   tone?: 'confident' | 'formal' | 'enthusiastic' | 'concise';
 }

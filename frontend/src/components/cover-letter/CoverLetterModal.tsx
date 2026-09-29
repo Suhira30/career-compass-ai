@@ -12,6 +12,14 @@ interface CoverLetterModalProps {
   matchedSkills?: string[];
   missingSkills?: string[];
   projects?: MatchingProject[];
+  initialInstitution?: string;
+  initialDegree?: string;
+  initialGpa?: string;
+  initialEmail?: string;
+  initialPhone?: string;
+  initialLinkedin?: string;
+  initialGithub?: string;
+  initialPortfolio?: string;
 }
 
 export const CoverLetterModal: React.FC<CoverLetterModalProps> = ({
@@ -24,11 +32,32 @@ export const CoverLetterModal: React.FC<CoverLetterModalProps> = ({
   matchedSkills = [],
   missingSkills = [],
   projects = [],
+  initialInstitution = '',
+  initialDegree = '',
+  initialGpa = '',
+  initialEmail = '',
+  initialPhone = '',
+  initialLinkedin = '',
+  initialGithub = '',
+  initialPortfolio = '',
 }) => {
   const [generationType, setGenerationType] = useState<'cover_letter' | 'application_email' | 'recruiter_email'>('cover_letter');
   const [tone, setTone] = useState<'confident' | 'formal' | 'enthusiastic' | 'concise'>('confident');
   const [roleInput, setRoleInput] = useState<string>(targetRole);
   const [companyInput, setCompanyInput] = useState<string>(companyName);
+
+  // Academic details
+  const [institution, setInstitution] = useState<string>(initialInstitution);
+  const [degree, setDegree] = useState<string>(initialDegree);
+  const [gpa, setGpa] = useState<string>(initialGpa);
+
+  // Sign-off contact details
+  const [email, setEmail] = useState<string>(initialEmail);
+  const [phone, setPhone] = useState<string>(initialPhone);
+  const [linkedinUrl, setLinkedinUrl] = useState<string>(initialLinkedin);
+  const [githubUrl, setGithubUrl] = useState<string>(initialGithub);
+  const [portfolioUrl, setPortfolioUrl] = useState<string>(initialPortfolio);
+  const [showOptionalDetails, setShowOptionalDetails] = useState<boolean>(true);
   
   // Selected projects to highlight
   const [selectedProjects, setSelectedProjects] = useState<MatchingProject[]>(projects);
@@ -51,9 +80,17 @@ export const CoverLetterModal: React.FC<CoverLetterModalProps> = ({
       setRoleInput(targetRole || 'Software Engineer');
       setCompanyInput(companyName || '');
       setSelectedProjects(projects.length > 0 ? projects : []);
+      setInstitution(initialInstitution || '');
+      setDegree(initialDegree || '');
+      setGpa(initialGpa || '');
+      setEmail(initialEmail || '');
+      setPhone(initialPhone || '');
+      setLinkedinUrl(initialLinkedin || '');
+      setGithubUrl(initialGithub || '');
+      setPortfolioUrl(initialPortfolio || '');
       setError(null);
     }
-  }, [isOpen, targetRole, companyName, projects]);
+  }, [isOpen, targetRole, companyName, projects, initialInstitution, initialDegree, initialGpa, initialEmail, initialPhone, initialLinkedin, initialGithub, initialPortfolio]);
 
   if (!isOpen) return null;
 
@@ -90,6 +127,14 @@ export const CoverLetterModal: React.FC<CoverLetterModalProps> = ({
         matched_skills: matchedSkills,
         missing_skills: missingSkills,
         projects: selectedProjects,
+        institution: institution.trim() || undefined,
+        degree: degree.trim() || undefined,
+        gpa: gpa.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        linkedin_url: linkedinUrl.trim() || undefined,
+        github_url: githubUrl.trim() || undefined,
+        portfolio_url: portfolioUrl.trim() || undefined,
         generation_type: generationType,
         tone: tone,
       };
@@ -342,6 +387,160 @@ export const CoverLetterModal: React.FC<CoverLetterModalProps> = ({
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* 3. Education & Sign-off Details (Optional) */}
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-semibold text-zinc-300 tracking-wider uppercase flex items-center gap-2">
+                  <span>3. Education & Sign-off Details</span>
+                  <span className="text-[10px] text-cyan-400 font-normal lowercase">(optional academic & contact links)</span>
+                </label>
+                <p className="text-[11px] text-zinc-400">
+                  Auto-populated from your CV. Weave your university & GPA into the narrative, and append real contact links to the sign-off.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOptionalDetails(!showOptionalDetails)}
+                className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer underline"
+              >
+                {showOptionalDetails ? 'Hide Details' : 'Show Details'}
+              </button>
+            </div>
+
+            {showOptionalDetails && (
+              <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-4 animate-fade-in">
+                {/* Academic Subsection */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm">🎓</span>
+                    <span className="text-xs font-bold text-white tracking-wide">University & Academic Standing</span>
+                    {institution ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        From CV
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Missing in CV — Add University
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        University / Institution Name
+                      </label>
+                      <input
+                        type="text"
+                        value={institution}
+                        onChange={(e) => setInstitution(e.target.value)}
+                        placeholder="e.g. University of Moratuwa"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        Degree / Major
+                      </label>
+                      <input
+                        type="text"
+                        value={degree}
+                        onChange={(e) => setDegree(e.target.value)}
+                        placeholder="e.g. B.Sc. in Computer Science"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1 flex items-center justify-between">
+                        <span>CGPA or Highest SGPA</span>
+                        <span className="text-[10px] text-zinc-500">Optional</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={gpa}
+                        onChange={(e) => setGpa(e.target.value)}
+                        placeholder="e.g. 3.85 / 4.0 or First Class"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sign-off Contact Subsection */}
+                <div className="pt-2 border-t border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm">📞</span>
+                    <span className="text-xs font-bold text-white tracking-wide">Sign-off Contact Details & Professional Links</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="e.g. +94 77 123 4567"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="e.g. candidate@example.com"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        LinkedIn Profile URL
+                      </label>
+                      <input
+                        type="text"
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                        placeholder="e.g. linkedin.com/in/username"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        GitHub Profile URL
+                      </label>
+                      <input
+                        type="text"
+                        value={githubUrl}
+                        onChange={(e) => setGithubUrl(e.target.value)}
+                        placeholder="e.g. github.com/username"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-zinc-400 block mb-1">
+                        Portfolio Website URL
+                      </label>
+                      <input
+                        type="text"
+                        value={portfolioUrl}
+                        onChange={(e) => setPortfolioUrl(e.target.value)}
+                        placeholder="e.g. myportfolio.dev"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-zinc-500"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

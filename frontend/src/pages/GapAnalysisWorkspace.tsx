@@ -9,10 +9,10 @@ import { SkillGapDashboard } from '../components/gap-analysis/SkillGapDashboard'
 import { useAuth } from '../context/AuthContext';
 import { apiService, parseApiError } from '../services/api';
 import {
-    GapAnalysisResponse,
-    JobExtractResponse,
-    ResumeUploadResponse,
-    UserProfileInput,
+  GapAnalysisResponse,
+  JobExtractResponse,
+  ResumeUploadResponse,
+  UserProfileInput,
 } from '../types';
 import { storageAdapter } from '../utils/storageAdapter';
 
@@ -550,6 +550,12 @@ export const GapAnalysisWorkspace: React.FC<GapAnalysisWorkspaceProps> = ({
         matchedSkills={analysisData?.skill_matrix?.matched_skills || []}
         missingSkills={analysisData?.skill_matrix?.missing_skills || []}
         projects={extractedResume?.extracted_data?.projects || []}
+        initialInstitution={extractedResume?.extracted_data?.education?.[0]?.institution || userCloudProfile?.institution || undefined}
+        initialDegree={extractedResume?.extracted_data?.education?.[0]?.degree || userCloudProfile?.education_degree || undefined}
+        initialEmail={userCloudProfile?.email || user?.email || undefined}
+        initialLinkedin={extractedResume?.extracted_data?.links?.linkedin || undefined}
+        initialGithub={extractedResume?.extracted_data?.links?.github || undefined}
+        initialPortfolio={extractedResume?.extracted_data?.links?.portfolio || undefined}
       />
 
       {/* ================= FOOTER ================= */}
