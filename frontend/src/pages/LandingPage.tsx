@@ -16,25 +16,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onNavigateToCopilot,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [targetRole, setTargetRole] = useState('Senior AI Engineer');
-  const [experienceLevel, setExperienceLevel] = useState('Mid-Level (2–4 yrs)');
-  const [selectedFileName, setSelectedFileName] = useState('resume.pdf');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [advisorQuery, setAdvisorQuery] = useState('');
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setSelectedFileName(file.name);
-    }
-  };
 
   const handleQuickAnalyze = () => {
     if (onNavigateToGap) {
       onNavigateToGap();
     } else if (onStartAnalysis) {
-      onStartAnalysis(targetRole, experienceLevel, selectedFile);
+      onStartAnalysis();
     } else {
       const el = document.getElementById('gap');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
