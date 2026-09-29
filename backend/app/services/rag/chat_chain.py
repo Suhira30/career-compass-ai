@@ -15,6 +15,13 @@ from app.core.llm_provider_key import (
     is_quota_exhausted_error,
     LLMQuotaExhaustedException,
 )
+from app.core.model_resolver import (
+    get_active_gemini_models,
+    get_active_groq_models,
+    mark_gemini_model_deprecated,
+    mark_groq_model_deprecated,
+    is_model_deprecated_error,
+)
 from app.models.chat import ChatMessageResponse
 from app.models.analysis import GapAnalysisResponse
 from app.services.rag.vector_store import search_relevant_context
@@ -181,42 +188,46 @@ def invoke_chat_chain(
     # 1. Primary: Gemini
     active_gemini_key = get_active_gemini_key()
     if active_gemini_key:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            llm = ChatGoogleGenerativeAI(google_api_key=active_gemini_key, model=settings.GEMINI_MODEL, temperature=0.3)
-            chain = prompt_template | llm
-            res = chain.invoke({"context_str": context_str, "user_message": user_message})
-            text = res.content if hasattr(res, "content") else str(res)
-            return ChatMessageResponse(
-                session_id=session_id,
-                response=text,
-                suggested_followups=generate_suggested_followups(user_message, text),
-            )
-        except Exception as exc:
-            logger.warning(f"Gemini Chat failed: {exc}")
-            if is_quota_exhausted_error(exc):
-                raise LLMQuotaExhaustedException(
-                    message="Gemini API quota or rate limit reached. Please supply a new or refreshed API key to continue chatting.",
-                    provider="gemini",
+        import google.generativeai as genai
+        genai.configure(api_key=active_gemini_key)
+        full_prompt = f"{CHAT_SYSTEM_PROMPT.format(context_str=context_str)}\n\nUser: {user_message}"
+        for model_name in get_active_gemini_models():
+            try:
+                model = genai.GenerativeModel(model_name=model_name, generation_config={"temperature": 0.3})
+                response = model.generate_content(full_prompt)
+                text = response.text.strip() if hasattr(response, "text") else ""
+                return ChatMessageResponse(
+                    session_id=session_id,
+                    response=text,
+                    suggested_followups=generate_suggested_followups(user_message, text),
                 )
+            except Exception as exc:
+                if is_model_deprecated_error(exc):
+                    mark_gemini_model_deprecated(model_name)
+                logger.warning(f"Gemini Chat candidate '{model_name}' failed: {exc}")
+                if is_quota_exhausted_error(exc):
+                    break
+                continue
 
     # 2. Fallback 1: Groq
     if settings.GROQ_API_KEY:
-        try:
-            from langchain_groq import ChatGroq
-            llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=settings.GROQ_MODEL, temperature=0.3)
-            chain = prompt_template | llm
-            res = chain.invoke({"context_str": context_str, "user_message": user_message})
-            text = res.content if hasattr(res, "content") else str(res)
-            return ChatMessageResponse(
-                session_id=session_id,
-                response=text,
-                suggested_followups=generate_suggested_followups(user_message, text),
-            )
-        except Exception as exc:
-            logger.warning(f"Groq Chat failed: {exc}")
-            if is_quota_exhausted_error(exc) and not settings.OPENAI_API_KEY:
-                raise LLMQuotaExhaustedException(provider="groq")
+        from langchain_groq import ChatGroq
+        for model_name in get_active_groq_models():
+            try:
+                llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=model_name, temperature=0.3)
+                chain = prompt_template | llm
+                res = chain.invoke({"context_str": context_str, "user_message": user_message})
+                text = res.content if hasattr(res, "content") else str(res)
+                return ChatMessageResponse(
+                    session_id=session_id,
+                    response=text,
+                    suggested_followups=generate_suggested_followups(user_message, text),
+                )
+            except Exception as exc:
+                if is_model_deprecated_error(exc):
+                    mark_groq_model_deprecated(model_name)
+                logger.warning(f"Groq Chat candidate '{model_name}' failed: {exc}")
+                continue
 
     # 3. Fallback 2: OpenAI
     if settings.OPENAI_API_KEY:
@@ -261,38 +272,49 @@ async def stream_chat_chain(
     # 1. Primary: Gemini Streaming
     active_gemini_key = get_active_gemini_key()
     if active_gemini_key:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            llm = ChatGoogleGenerativeAI(google_api_key=active_gemini_key, model=settings.GEMINI_MODEL, temperature=0.3, streaming=True)
-            chain = prompt_template | llm
-            async for chunk in chain.astream({"context_str": context_str, "user_message": user_message}):
-                content = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if content:
-                    yield content
-            return
-        except Exception as exc:
-            logger.warning(f"Gemini Streaming failed: {exc}")
-            if is_quota_exhausted_error(exc):
-                raise LLMQuotaExhaustedException(
-                    message="Gemini API quota or rate limit reached. Please supply a new or refreshed API key to continue chatting.",
-                    provider="gemini",
-                )
+        import google.generativeai as genai
+        genai.configure(api_key=active_gemini_key)
+        full_prompt = f"{CHAT_SYSTEM_PROMPT.format(context_str=context_str)}\n\nUser: {user_message}"
+        for model_name in get_active_gemini_models():
+            try:
+                model = genai.GenerativeModel(model_name=model_name, generation_config={"temperature": 0.3})
+                response = model.generate_content(full_prompt, stream=True)
+                streamed_any = False
+                for chunk in response:
+                    chunk_text = getattr(chunk, "text", "")
+                    if chunk_text:
+                        streamed_any = True
+                        yield chunk_text
+                if streamed_any:
+                    return
+            except Exception as exc:
+                if is_model_deprecated_error(exc):
+                    mark_gemini_model_deprecated(model_name)
+                logger.warning(f"Gemini Streaming candidate '{model_name}' failed: {exc}")
+                if is_quota_exhausted_error(exc):
+                    break
+                continue
 
     # 2. Fallback 1: Groq Streaming
     if settings.GROQ_API_KEY:
-        try:
-            from langchain_groq import ChatGroq
-            llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=settings.GROQ_MODEL, temperature=0.3, streaming=True)
-            chain = prompt_template | llm
-            async for chunk in chain.astream({"context_str": context_str, "user_message": user_message}):
-                content = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if content:
-                    yield content
-            return
-        except Exception as exc:
-            logger.warning(f"Groq Streaming failed: {exc}")
-            if is_quota_exhausted_error(exc):
-                raise LLMQuotaExhaustedException(provider="groq")
+        from langchain_groq import ChatGroq
+        for model_name in get_active_groq_models():
+            try:
+                llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=model_name, temperature=0.3, streaming=True)
+                chain = prompt_template | llm
+                streamed_any = False
+                async for chunk in chain.astream({"context_str": context_str, "user_message": user_message}):
+                    content = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    if content:
+                        streamed_any = True
+                        yield content
+                if streamed_any:
+                    return
+            except Exception as exc:
+                if is_model_deprecated_error(exc):
+                    mark_groq_model_deprecated(model_name)
+                logger.warning(f"Groq Streaming candidate '{model_name}' failed: {exc}")
+                continue
 
     # Fallback non-streaming text yield
     res = invoke_chat_chain(user_message, context_str, "temp_sess")

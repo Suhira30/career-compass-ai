@@ -12,6 +12,11 @@ from app.core.llm_provider_key import (
     is_quota_exhausted_error,
     LLMQuotaExhaustedException,
 )
+from app.core.model_resolver import (
+    get_active_gemini_models,
+    mark_gemini_model_deprecated,
+    is_model_deprecated_error,
+)
 from app.models.analysis import SkillMatrix, QualitativeAssessment
 from app.models.profile import UserProfileDetail
 from app.models.job import ExtractedJobData
@@ -178,8 +183,7 @@ def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
     import json
     genai.configure(api_key=active_key)
 
-    models_to_try = [settings.GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
-    models_to_try = list(dict.fromkeys([m for m in models_to_try if m]))
+    models_to_try = get_active_gemini_models()
 
     prompt_str = f"{ASSESSMENT_SYSTEM_PROMPT}\n\n{summary_text}\n\nReturn valid JSON matching schema: {json.dumps(QualitativeAssessment.model_json_schema())}"
     last_err: Exception | None = None
@@ -193,6 +197,8 @@ def _try_gemini_lcel(summary_text: str) -> QualitativeAssessment:
             return QualitativeAssessment.model_validate(json.loads(raw))
         except Exception as g_err:
             last_err = g_err
+            if is_model_deprecated_error(g_err):
+                mark_gemini_model_deprecated(gm)
             continue
     raise last_err or RuntimeError("All Gemini candidates failed in skill matcher.")
 

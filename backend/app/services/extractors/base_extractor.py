@@ -3,9 +3,10 @@ Unified Base LLM Structured Extractor Engine
 Implements resilient multi-provider extraction (Gemini native JSON -> Groq candidates -> OpenAI)
 """
 
+import hashlib
 import json
 import logging
-from typing import Type, TypeVar, List
+from typing import Type, TypeVar, List, Dict, Any
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
@@ -15,10 +16,22 @@ from app.core.llm_provider_key import (
     is_quota_exhausted_error,
     LLMQuotaExhaustedException,
 )
+from app.core.model_resolver import (
+    get_active_gemini_models,
+    get_active_groq_models,
+    mark_gemini_model_deprecated,
+    mark_groq_model_deprecated,
+    is_model_deprecated_error,
+)
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+# Fast in-memory hash cache to prevent redundant quota usage on repeated user submissions
+_EXTRACTION_CACHE: Dict[str, Any] = {}
+_MAX_CACHE_SIZE = 128
+
 
 def extract_structured_data(
     raw_text: str,
@@ -29,19 +42,32 @@ def extract_structured_data(
     """
     Generic extraction executor with dynamic multi-provider fallback.
     Default provider priority: configured LLM_PROVIDER (e.g. Gemini) -> Groq -> OpenAI.
+    Includes SHA-256 hash caching to burn 0 API calls on identical inputs.
     """
+    cache_key = hashlib.sha256(f"{task_name}:{raw_text.strip()}".encode("utf-8")).hexdigest()
+    if cache_key in _EXTRACTION_CACHE:
+        logger.info(f"Extraction cache hit for {task_name} (hash={cache_key[:8]}). Zero API calls consumed.")
+        return _EXTRACTION_CACHE[cache_key]
+
     providers = ["gemini", "groq", "openai"] if settings.LLM_PROVIDER.lower() == "gemini" else ["groq", "gemini", "openai"]
     errors = []
 
     for provider in providers:
         try:
             logger.info(f"Attempting {task_name} with Provider: {provider.upper()}")
+            result: T | None = None
             if provider == "gemini":
-                return _try_gemini_extraction(system_prompt, raw_text, schema_class)
+                result = _try_gemini_extraction(system_prompt, raw_text, schema_class)
             elif provider == "groq":
-                return _try_groq_extraction(system_prompt, raw_text, schema_class)
+                result = _try_groq_extraction(system_prompt, raw_text, schema_class)
             elif provider == "openai":
-                return _try_openai_extraction(system_prompt, raw_text, schema_class)
+                result = _try_openai_extraction(system_prompt, raw_text, schema_class)
+
+            if result is not None:
+                if len(_EXTRACTION_CACHE) >= _MAX_CACHE_SIZE:
+                    _EXTRACTION_CACHE.pop(next(iter(_EXTRACTION_CACHE)))
+                _EXTRACTION_CACHE[cache_key] = result
+                return result
         except Exception as exc:
             err_msg = f"{provider.capitalize()} failed: {str(exc) or repr(exc)}"
             logger.warning(f"{task_name} - {err_msg}. Failing over to next provider...")
@@ -67,61 +93,6 @@ def extract_structured_data(
     )
 
 
-def _get_active_groq_models() -> List[str]:
-    """Dynamically queries Groq API for active chat models available to the current API key."""
-    discovered = []
-    try:
-        from groq import Groq
-        client = Groq(api_key=settings.GROQ_API_KEY)
-        models_data = client.models.list().data
-        for m in models_data:
-            m_id = getattr(m, "id", None) or (m.get("id") if isinstance(m, dict) else None)
-            if m_id:
-                lower_id = m_id.lower()
-                if not any(x in lower_id for x in ["whisper", "audio", "guard", "vision", "safeguard", "embed"]):
-                    discovered.append(m_id)
-        if discovered:
-            logger.info(f"Dynamically discovered {len(discovered)} active Groq models: {discovered}")
-    except Exception as e:
-        logger.warning(f"Could not dynamically list Groq models: {e}")
-
-    priorities = settings.GROQ_CANDIDATE_MODELS if getattr(settings, "GROQ_CANDIDATE_MODELS", None) else [
-        "gemma2-9b-it",
-        "mixtral-8x7b-32768",
-        "llama-3.3-70b-versatile",
-        "llama-3.3-70b-specdec",
-        "llama-3.2-3b-preview",
-        "llama-3.2-1b-preview",
-    ]
-    if discovered:
-        return [m for m in priorities if m in discovered] + [m for m in discovered if m not in priorities]
-    return priorities
-
-
-def _discover_active_gemini_models() -> List[str]:
-    """Dynamically queries Google Gemini API for available chat/text generation models on this key."""
-    candidates = []
-    try:
-        active_key = get_active_gemini_key()
-        if not active_key:
-            return candidates
-        import google.generativeai as genai
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        genai.configure(api_key=active_key)
-        for m in genai.list_models():
-            if "generateContent" in getattr(m, "supported_generation_methods", []):
-                name = getattr(m, "name", "").replace("models/", "")
-                if name:
-                    lower_name = name.lower()
-                    if not any(x in lower_name for x in ["tts", "audio", "embedding", "imagen", "bison", "realtime"]):
-                        candidates.append(name)
-        if candidates:
-            logger.info(f"Dynamically discovered {len(candidates)} active Gemini models: {candidates[:5]}")
-    except Exception as exc:
-        logger.warning(f"Dynamic Gemini model listing failed: {exc}")
-    return candidates
-
-
 def _extract_text_from_gemini_response(response) -> str:
     try:
         return response.text.strip()
@@ -144,14 +115,10 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
         raise ValueError("GEMINI_API_KEY is not configured.")
 
     import google.generativeai as genai
-
     genai.configure(api_key=active_key)
 
-    # Phase 1: Fast Path (Read prioritized candidate models from settings with zero extra discovery latency)
-    gemini_candidates = [settings.GEMINI_MODEL] + [
-        m for m in getattr(settings, "GEMINI_CANDIDATE_MODELS", []) if m != settings.GEMINI_MODEL
-    ]
-    models_to_try = list(dict.fromkeys([m for m in gemini_candidates if m]))
+    # Get priority list of active, verified non-deprecated models
+    models_to_try = get_active_gemini_models()
 
     prompt_str = (
         f"{system_prompt}\n\n"
@@ -177,38 +144,12 @@ def _try_gemini_extraction(system_prompt: str, user_text: str, schema_class: Typ
             return validated
         except Exception as exc:
             last_err = exc
-            if is_quota_exhausted_error(exc):
+            if is_model_deprecated_error(exc):
+                mark_gemini_model_deprecated(model_name)
+            elif is_quota_exhausted_error(exc):
                 logger.warning(f"Gemini API quota/rate limit reached on candidate '{model_name}'.")
             else:
                 logger.warning(f"Gemini candidate '{model_name}' failed: {exc}. Retrying next candidate...")
-            continue
-
-    # Phase 2: Self-Healing Recovery (Triggered dynamically ONLY if all known models fail)
-    logger.info("Known Gemini models failed or deprecated. Triggering dynamic model discovery...")
-    discovered = _discover_active_gemini_models()
-    remaining_candidates = [m for m in discovered if m not in models_to_try]
-
-    for model_name in remaining_candidates:
-        try:
-            logger.info(f"Retrying extraction with discovered Gemini model: '{model_name}'")
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                generation_config={"response_mime_type": "application/json", "temperature": 0.1},
-            )
-            response = model.generate_content(prompt_str)
-            raw_text = _extract_text_from_gemini_response(response)
-            if raw_text.startswith("```"):
-                raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            data_dict = json.loads(raw_text)
-            validated = schema_class.model_validate(data_dict)
-            logger.info(f"Self-healing extraction succeeded using discovered Gemini model: '{model_name}'")
-            return validated
-        except Exception as exc:
-            last_err = exc
-            if is_quota_exhausted_error(exc):
-                logger.warning(f"Discovered Gemini candidate '{model_name}' hit rate limit: {exc}")
-            else:
-                logger.warning(f"Discovered Gemini candidate '{model_name}' failed: {exc}")
             continue
 
     if last_err and is_quota_exhausted_error(last_err):
@@ -230,13 +171,7 @@ def _try_groq_extraction(system_prompt: str, user_text: str, schema_class: Type[
         ("human", f"Input Text:\n\n{user_text}"),
     ]
 
-    candidate_models = _get_active_groq_models()
-    preferred = settings.GROQ_MODEL
-    if preferred and preferred not in ("llama-3.1-8b-instant", "llama-3-8b-instant", "llama3-70b-8192", "llama3-8b-8192"):
-        if preferred in candidate_models:
-            candidate_models.remove(preferred)
-        candidate_models.insert(0, preferred)
-
+    candidate_models = get_active_groq_models()
     last_error: Exception | None = None
     for model_name in candidate_models:
         try:
@@ -251,6 +186,8 @@ def _try_groq_extraction(system_prompt: str, user_text: str, schema_class: Type[
             return result
         except Exception as exc:
             last_error = exc
+            if is_model_deprecated_error(exc):
+                mark_groq_model_deprecated(model_name)
             logger.warning(f"Groq candidate '{model_name}' unavailable: {exc}. Retrying with next model...")
             continue
 

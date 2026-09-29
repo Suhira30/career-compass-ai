@@ -15,6 +15,13 @@ from app.core.llm_provider_key import (
     get_active_gemini_key,
     is_quota_exhausted_error,
 )
+from app.core.model_resolver import (
+    get_active_gemini_models,
+    get_active_groq_models,
+    mark_gemini_model_deprecated,
+    mark_groq_model_deprecated,
+    is_model_deprecated_error,
+)
 from app.models.cover_letter import CoverLetterRequest, CoverLetterResponse
 
 logger = logging.getLogger(__name__)
@@ -182,41 +189,50 @@ def generate_cover_letter(request: CoverLetterRequest) -> CoverLetterResponse:
     # 1. Primary: Gemini
     active_gemini_key = get_active_gemini_key()
     if active_gemini_key:
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            llm = ChatGoogleGenerativeAI(google_api_key=active_gemini_key, model=settings.GEMINI_MODEL, temperature=0.4)
-            chain = prompt_template | llm
-            res = chain.invoke(prompt_vars)
-            raw_text = res.content if hasattr(res, "content") else str(res)
-            subject, content = _extract_subject_and_content(raw_text, request.generation_type)
-            return CoverLetterResponse(
-                generation_type=request.generation_type,
-                subject_line=subject,
-                content=content,
-                matching_projects_highlighted=[p.title for p in request.projects],
-                key_strengths_referenced=request.matched_skills[:6],
-            )
-        except Exception as exc:
-            logger.warning(f"Gemini Cover Letter generation failed: {exc}")
+        import google.generativeai as genai
+        genai.configure(api_key=active_gemini_key)
+        prompt_text = f"{SYSTEM_PROMPT}\n\n{USER_PROMPT_TEMPLATE.format(**prompt_vars)}"
+        for model_name in get_active_gemini_models():
+            try:
+                model = genai.GenerativeModel(model_name=model_name, generation_config={"temperature": 0.4})
+                response = model.generate_content(prompt_text)
+                raw_text = response.text.strip() if hasattr(response, "text") else ""
+                subject, content = _extract_subject_and_content(raw_text, request.generation_type)
+                return CoverLetterResponse(
+                    generation_type=request.generation_type,
+                    subject_line=subject,
+                    content=content,
+                    matching_projects_highlighted=[p.title for p in request.projects],
+                    key_strengths_referenced=request.matched_skills[:6],
+                )
+            except Exception as exc:
+                if is_model_deprecated_error(exc):
+                    mark_gemini_model_deprecated(model_name)
+                logger.warning(f"Gemini Cover Letter candidate '{model_name}' failed: {exc}")
+                continue
 
     # 2. Fallback 1: Groq
     if settings.GROQ_API_KEY:
-        try:
-            from langchain_groq import ChatGroq
-            llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=settings.GROQ_MODEL, temperature=0.4)
-            chain = prompt_template | llm
-            res = chain.invoke(prompt_vars)
-            raw_text = res.content if hasattr(res, "content") else str(res)
-            subject, content = _extract_subject_and_content(raw_text, request.generation_type)
-            return CoverLetterResponse(
-                generation_type=request.generation_type,
-                subject_line=subject,
-                content=content,
-                matching_projects_highlighted=[p.title for p in request.projects],
-                key_strengths_referenced=request.matched_skills[:6],
-            )
-        except Exception as exc:
-            logger.warning(f"Groq Cover Letter generation failed: {exc}")
+        from langchain_groq import ChatGroq
+        for model_name in get_active_groq_models():
+            try:
+                llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=model_name, temperature=0.4)
+                chain = prompt_template | llm
+                res = chain.invoke(prompt_vars)
+                raw_text = res.content if hasattr(res, "content") else str(res)
+                subject, content = _extract_subject_and_content(raw_text, request.generation_type)
+                return CoverLetterResponse(
+                    generation_type=request.generation_type,
+                    subject_line=subject,
+                    content=content,
+                    matching_projects_highlighted=[p.title for p in request.projects],
+                    key_strengths_referenced=request.matched_skills[:6],
+                )
+            except Exception as exc:
+                if is_model_deprecated_error(exc):
+                    mark_groq_model_deprecated(model_name)
+                logger.warning(f"Groq Cover Letter candidate '{model_name}' failed: {exc}")
+                continue
 
     # 3. Fallback 2: OpenAI
     if settings.OPENAI_API_KEY:

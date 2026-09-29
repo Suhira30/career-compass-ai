@@ -235,11 +235,8 @@ def get_active_gemini_models(api_key: str) -> List[str]:
         logger.info(f"Dynamic Gemini model listing fallback: {exc}")
 
     priority_models = [
-        "gemini-1.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-pro",
-        "gemini-2.5-flash",
-        "gemini-flash-latest",
+        "gemini-3.8-flash",
+        "gemini-3.1-pro-preview",
     ]
     final_list = [m for m in priority_models if m in candidates]
     if not final_list:

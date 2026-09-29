@@ -48,16 +48,15 @@ class Settings(BaseSettings):
     
     # Fallback LLM Keys & Configuration
     GEMINI_API_KEY: str = Field(default="")
-    GEMINI_MODEL: str = Field(default="gemini-1.5-flash", description="Default active Gemini model")
+    GEMINI_MODEL: str = Field(default="gemini-3.8-flash", description="Default active Gemini model")
     OPENAI_API_KEY: str = Field(default="")
     OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="Fallback OpenAI model")
 
     # Configurable Candidate Model Lists for Resilient Auto-Healing
     GEMINI_CANDIDATE_MODELS: List[str] = Field(
         default=[
-            "gemini-1.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-pro",
+            "gemini-3.8-flash",
+            "gemini-3.1-pro-preview",
         ],
         description="Priority ordered list of candidate Gemini models",
     )
