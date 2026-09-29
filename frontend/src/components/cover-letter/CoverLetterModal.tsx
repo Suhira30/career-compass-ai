@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { apiService, parseApiError } from '../../services/api';
 import { CoverLetterRequest, CoverLetterResponse, MatchingProject } from '../../types';
 

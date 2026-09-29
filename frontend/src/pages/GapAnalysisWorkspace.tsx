@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { UserNavPill } from '../components/auth/UserNavPill';
+import { CoverLetterModal } from '../components/cover-letter/CoverLetterModal';
 import { ExtractedProfileReview } from '../components/gap-analysis/ExtractedProfileReview';
 import { InteractiveAnalyzeButton } from '../components/gap-analysis/InteractiveAnalyzeButton';
 import { JobDescriptionInput, SAMPLE_AI_JD } from '../components/gap-analysis/JobDescriptionInput';
 import { ResumeUploader } from '../components/gap-analysis/ResumeUploader';
 import { SkillGapDashboard } from '../components/gap-analysis/SkillGapDashboard';
-import { CoverLetterModal } from '../components/cover-letter/CoverLetterModal';
 import { useAuth } from '../context/AuthContext';
 import { apiService, parseApiError } from '../services/api';
 import {
-  GapAnalysisResponse,
-  JobExtractResponse,
-  ResumeUploadResponse,
-  UserProfileInput,
+    GapAnalysisResponse,
+    JobExtractResponse,
+    ResumeUploadResponse,
+    UserProfileInput,
 } from '../types';
 import { storageAdapter } from '../utils/storageAdapter';
 
