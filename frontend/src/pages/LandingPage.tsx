@@ -41,6 +41,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
+  const handleAdvisorSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = advisorQuery.trim();
+    if (query) {
+      sessionStorage.setItem('career_compass_copilot_initial_query', query);
+    }
+    if (onNavigateToCopilot) {
+      onNavigateToCopilot();
+    } else {
+      const el = document.getElementById('advisor');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="bg-[#F4F3F8] text-[#121624] antialiased selection:bg-cyan-500 selection:text-white min-h-screen">
 
@@ -443,8 +457,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="relative w-full max-w-7xl mx-auto rounded-3xl overflow-hidden shadow-2xl bg-footer-quantum min-h-[260px] flex items-center justify-between p-8 sm:p-12 border border-white/15">
           
           <div className="w-full max-w-lg mx-auto z-10">
-            <div className="glass-pill px-5 py-3.5 rounded-full flex items-center gap-3 shadow-2xl border border-white/30">
-              <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <form onSubmit={handleAdvisorSubmit} className="glass-pill px-5 py-3.5 rounded-full flex items-center gap-3 shadow-2xl border border-white/30">
+              <svg className="w-4 h-4 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               <input
                 type="text"
                 value={advisorQuery}
@@ -453,12 +467,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 className="bg-transparent text-xs text-white placeholder-white/60 focus:outline-none w-full font-light"
               />
               <button
-                type="button"
-                className="px-4 py-1.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-slate-950 text-xs font-bold hover:opacity-90 transition-opacity shadow-md"
+                type="submit"
+                className="px-4 py-1.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 text-xs font-bold hover:opacity-90 transition-all shadow-md cursor-pointer shrink-0"
               >
                 Ask
               </button>
-            </div>
+            </form>
           </div>
 
           <div className="absolute right-8 bottom-6 text-right opacity-80 pointer-events-none hidden sm:block">

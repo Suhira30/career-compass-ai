@@ -44,7 +44,16 @@ export const CareerCopilotWorkspace: React.FC<CareerCopilotWorkspaceProps> = ({
     return 'sess_' + Math.random().toString(36).substring(2, 9);
   });
 
-  const [inputQuery, setInputQuery] = useState<string>('');
+  const [inputQuery, setInputQuery] = useState<string>(() => {
+    try {
+      const initial = sessionStorage.getItem('career_compass_copilot_initial_query');
+      if (initial) {
+        sessionStorage.removeItem('career_compass_copilot_initial_query');
+        return initial;
+      }
+    } catch {}
+    return '';
+  });
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>(() => {
     return storageAdapter.getChatMessages(isAuth, user?.id);
