@@ -380,82 +380,6 @@ export const CareerCopilotWorkspace: React.FC<CareerCopilotWorkspaceProps> = ({
     </div>
   );
 
-  // Reusable 3 Quick-Launch Action Cards
-  const renderQuickLaunchCards = () => (
-    <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
-      {/* Card 1: Interview Insights */}
-      <div
-        onClick={() => handleSendMessage('Test me with a hard Senior Backend interview scenario on FastAPI async vs sync!')}
-        className="glass-frame rounded-[1.75rem] p-5 border border-white/15 hover:border-emerald-400/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer group shadow-xl"
-      >
-        <div className="w-10 h-10 rounded-2xl bg-[#bef264]/20 border border-[#bef264]/40 flex items-center justify-center text-[#bef264] mb-3.5 group-hover:scale-110 transition-transform">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-        </div>
-        <h3 className="font-bold text-base text-white mb-1 group-hover:text-emerald-300 transition-colors">
-          Interview Insights
-        </h3>
-        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-3">
-          Practice scenario-based questions on concurrency, GIL, and failure modes with senior rubrics.
-        </p>
-        <div className="flex items-center justify-between text-xs text-zinc-400 group-hover:text-white transition-colors font-medium">
-          <span>FastAPI & Docker Drills</span>
-          <svg className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
-        </div>
-      </div>
-
-      {/* Card 2: Skill Gap Navigator */}
-      <div
-        onClick={() => handleSendMessage('Explain why Redis and Kafka are marked as my Priority 1 missing skills for the Senior role.')}
-        className="glass-frame rounded-[1.75rem] p-5 border border-white/15 hover:border-emerald-400/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer group shadow-xl"
-      >
-        <div className="w-10 h-10 rounded-2xl bg-[#bef264]/20 border border-[#bef264]/40 flex items-center justify-center text-[#bef264] mb-3.5 group-hover:scale-110 transition-transform">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-          </svg>
-        </div>
-        <h3 className="font-bold text-base text-white mb-1 group-hover:text-emerald-300 transition-colors">
-          Skill Gap Navigator
-        </h3>
-        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-3">
-          Discover why hiring managers mandate distributed caching and streaming architecture.
-        </p>
-        <div className="flex items-center justify-between text-xs text-zinc-400 group-hover:text-white transition-colors font-medium">
-          <span>Priority 1 Gaps (Redis/Kafka)</span>
-          <svg className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
-        </div>
-      </div>
-
-      {/* Card 3: Roadmap Strategy */}
-      <div
-        onClick={() => handleSendMessage('Give me a concrete hands-on project idea for Week 1 to master FastAPI and Docker.')}
-        className="glass-frame rounded-[1.75rem] p-5 border border-white/15 hover:border-emerald-400/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer group shadow-xl"
-      >
-        <div className="w-10 h-10 rounded-2xl bg-[#bef264]/20 border border-[#bef264]/40 flex items-center justify-center text-[#bef264] mb-3.5 group-hover:scale-110 transition-transform">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-          </svg>
-        </div>
-        <h3 className="font-bold text-base text-white mb-1 group-hover:text-emerald-300 transition-colors">
-          Roadmap Strategy
-        </h3>
-        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-3">
-          Hands-on production projects and verified official documentation for your study plan.
-        </p>
-        <div className="flex items-center justify-between text-xs text-zinc-400 group-hover:text-white transition-colors font-medium">
-          <span>Hands-on Week 1 Project</span>
-          <svg className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="bg-hero-quantum text-[#F1F5F9] min-h-screen antialiased flex flex-col justify-between p-3 sm:p-5 lg:p-6 relative overflow-x-hidden">
@@ -519,11 +443,6 @@ export const CareerCopilotWorkspace: React.FC<CareerCopilotWorkspaceProps> = ({
         <main className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-center items-center space-y-6 sm:space-y-8 py-6">
           {/* Hero Greeting */}
           <div className="text-center space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 backdrop-blur-md mb-1 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-              Parent-Child RAG Online &bull; 484 Pinecone Vectors
-            </div>
-            
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-md">
               Hello, <span className="bg-gradient-to-r from-white via-slate-100 to-emerald-200 bg-clip-text text-transparent">{candidateName}</span>
             </h1>
@@ -540,11 +459,6 @@ export const CareerCopilotWorkspace: React.FC<CareerCopilotWorkspaceProps> = ({
           {/* Centered Prompt Card */}
           <div className="w-full">
             {renderPromptCard(false)}
-          </div>
-
-          {/* 3 Quick Launch Cards */}
-          <div className="w-full">
-            {renderQuickLaunchCards()}
           </div>
         </main>
       ) : (
@@ -637,14 +551,6 @@ export const CareerCopilotWorkspace: React.FC<CareerCopilotWorkspaceProps> = ({
         </main>
       )}
 
-      {/* Footer minimal info (only on initial screen to avoid cluttering chat) */}
-      {messages.length === 0 && (
-        <footer className="max-w-4xl w-full mx-auto text-center pt-4 pb-1 shrink-0">
-          <p className="text-[11px] text-zinc-400 font-mono">
-            Career Compass AI &bull; Grounded RAG with Parent-Child 3A-K5 &bull; Pinecone Serverless Cloud
-          </p>
-        </footer>
-      )}
 
     </div>
   );
