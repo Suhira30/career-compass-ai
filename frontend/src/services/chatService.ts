@@ -3,7 +3,12 @@
  * Connects to /api/v1/chat/message with SSE ReadableStream decoding.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const normalizeApiBaseUrl = (rawUrl?: string): string => {
+  const url = (rawUrl || 'http://localhost:8000/api/v1').trim().replace(/\/+$/, '');
+  return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 export interface ChatMessagePayload {
   message: string;

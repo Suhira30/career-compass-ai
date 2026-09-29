@@ -1,14 +1,19 @@
 import axios, { AxiosError } from 'axios';
 import {
-  GapAnalysisResponse,
-  JobExtractResponse,
-  ResumeUploadResponse,
-  RoadmapGenerateResponse,
-  UserProfileDetail,
-  UserProfileInput,
+    GapAnalysisResponse,
+    JobExtractResponse,
+    ResumeUploadResponse,
+    RoadmapGenerateResponse,
+    UserProfileDetail,
+    UserProfileInput,
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const normalizeApiBaseUrl = (rawUrl?: string): string => {
+  const url = (rawUrl || 'http://localhost:8000/api/v1').trim().replace(/\/+$/, '');
+  return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

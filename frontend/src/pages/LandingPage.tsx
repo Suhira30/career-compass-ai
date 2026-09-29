@@ -136,79 +136,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          {/* BOTTOM HERO BAR: TAGLINE (LEFT) + QUICK SEARCH CARD (RIGHT) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end z-20 pt-4">
+          {/* BOTTOM HERO BAR: TAGLINE (LEFT) + GET STARTED CTA (RIGHT) */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 z-20 pt-6 border-t border-white/10">
             
             {/* Left Tagline */}
-            <div className="lg:col-span-4 space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-snug">
+            <div className="space-y-1.5 max-w-xl">
+              <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
                 Precision Navigation in Multi-Dimensional Career Space.
               </h2>
-              <p className="text-xs text-white/70 font-light max-w-sm">
+              <p className="text-xs text-white/70 font-light">
                 Deconstruct candidate skills into mathematical dense embeddings, isolate critical gaps, and compute verified ATS compatibility.
               </p>
             </div>
 
-            {/* Right Floating Quick Search Widget (Glass Prism Look) */}
-            <div className="lg:col-span-8 bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-2xl border border-white/60 text-[#121624]">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
-                
-                {/* Field 1: Target Role */}
-                <div className="px-2 py-1">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Target Role Vector</label>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-cyan-600">🎯</span>
-                    <input
-                      type="text"
-                      value={targetRole}
-                      onChange={(e) => setTargetRole(e.target.value)}
-                      className="text-xs font-semibold text-gray-900 bg-transparent focus:outline-none w-full"
-                    />
-                  </div>
-                </div>
-
-                {/* Field 2: Experience / Level */}
-                <div className="px-2 py-1 sm:pl-4">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Experience Level</label>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-purple-600">⚡</span>
-                    <select
-                      value={experienceLevel}
-                      onChange={(e) => setExperienceLevel(e.target.value)}
-                      className="text-xs font-semibold text-gray-900 bg-transparent focus:outline-none w-full cursor-pointer"
-                    >
-                      <option>Mid-Level (2–4 yrs)</option>
-                      <option>Entry-Level (0–2 yrs)</option>
-                      <option>Senior / Lead (5+ yrs)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Field 3: Resume Input & Action Button */}
-                <div className="px-2 py-1 sm:pl-4 flex items-center justify-between gap-2">
-                  <div className="overflow-hidden">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer">
-                      <span>Resume Embedding</span>
-                      <input type="file" accept=".pdf,.docx" onChange={handleFileChange} className="hidden" />
-                    </label>
-                    <label className="flex items-center gap-1.5 mt-0.5 cursor-pointer">
-                      <span className="text-xs text-emerald-600">📄</span>
-                      <span className="text-xs font-semibold text-gray-900 truncate max-w-[120px]">{selectedFileName}</span>
-                    </label>
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={handleQuickAnalyze}
-                    className="px-4 py-2.5 rounded-xl bg-[#0B0F1C] hover:bg-black text-white text-xs font-semibold flex items-center gap-1.5 shadow-lg hover:shadow-cyan-500/20 transition-all whitespace-nowrap"
-                  >
-                    <span>Analyze</span>
-                    <span className="text-cyan-400">↗</span>
-                  </button>
-                </div>
-
-              </div>
-            </div>
+            {/* Right Action Button */}
+            <button
+              type="button"
+              onClick={handleQuickAnalyze}
+              className="group px-7 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold text-sm flex items-center gap-3 shadow-2xl shadow-cyan-500/25 hover:shadow-cyan-400/40 hover:scale-[1.03] active:scale-[0.98] transition-all whitespace-nowrap cursor-pointer"
+            >
+              <span>Get Started</span>
+              <span className="w-6 h-6 rounded-full bg-slate-950 text-cyan-400 flex items-center justify-center text-xs group-hover:translate-x-0.5 transition-transform font-bold">
+                →
+              </span>
+            </button>
 
           </div>
 
