@@ -21,6 +21,8 @@ from app.core.model_resolver import (
     mark_gemini_model_deprecated,
     mark_groq_model_deprecated,
     is_model_deprecated_error,
+    is_quota_or_rate_limit_error,
+    mark_model_cooldown,
 )
 from app.models.cover_letter import CoverLetterRequest, CoverLetterResponse
 
@@ -270,7 +272,14 @@ def generate_cover_letter(request: CoverLetterRequest) -> CoverLetterResponse:
             try:
                 model = genai.GenerativeModel(model_name=model_name, generation_config={"temperature": 0.4})
                 response = model.generate_content(prompt_text)
-                raw_text = response.text.strip() if hasattr(response, "text") else ""
+                raw_text = ""
+                try:
+                    raw_text = response.text.strip()
+                except Exception:
+                    if hasattr(response, "candidates") and response.candidates:
+                        for part in getattr(response.candidates[0].content, "parts", []):
+                            if hasattr(part, "text") and part.text:
+                                raw_text += part.text
                 subject, content = _extract_subject_and_content(raw_text, request.generation_type)
                 return CoverLetterResponse(
                     generation_type=request.generation_type,
@@ -282,6 +291,8 @@ def generate_cover_letter(request: CoverLetterRequest) -> CoverLetterResponse:
             except Exception as exc:
                 if is_model_deprecated_error(exc):
                     mark_gemini_model_deprecated(model_name)
+                elif is_quota_or_rate_limit_error(exc):
+                    mark_model_cooldown(model_name, duration_seconds=600.0)
                 logger.warning(f"Gemini Cover Letter candidate '{model_name}' failed: {exc}")
                 continue
 
@@ -305,6 +316,8 @@ def generate_cover_letter(request: CoverLetterRequest) -> CoverLetterResponse:
             except Exception as exc:
                 if is_model_deprecated_error(exc):
                     mark_groq_model_deprecated(model_name)
+                elif is_quota_or_rate_limit_error(exc):
+                    mark_model_cooldown(model_name, duration_seconds=600.0)
                 logger.warning(f"Groq Cover Letter candidate '{model_name}' failed: {exc}")
                 continue
 

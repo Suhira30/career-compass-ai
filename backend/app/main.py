@@ -21,19 +21,23 @@ async def _database_keepalive_loop():
     """
     Periodic background heartbeat to keep database connection warm and active,
     preventing cloud databases from going idle or pausing. Runs every 24 hours.
+    Guaranteed non-blocking with a 3.0s safe timeout in an isolated thread.
     """
     logger.info("Database keep-alive heartbeat worker registered (interval: 24h).")
-    # Wait 15 seconds after server startup before first ping
-    await asyncio.sleep(15)
+    # Wait 30 seconds after server startup before first ping
+    await asyncio.sleep(30)
     while True:
         try:
-            from sqlalchemy import text
-            from app.db.session import engine
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
+            def _ping_db():
+                from sqlalchemy import text
+                from app.db.session import engine
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+
+            await asyncio.wait_for(asyncio.to_thread(_ping_db), timeout=3.0)
             logger.info("Database keep-alive ping successful (SELECT 1). Activity refreshed.")
         except Exception as exc:
-            logger.debug(f"Database keep-alive ping attempt: {exc}")
+            logger.debug(f"Database keep-alive ping attempt note: {exc}")
 
         # Sleep for 24 hours (86,400 seconds)
         await asyncio.sleep(86400)
@@ -41,8 +45,8 @@ async def _database_keepalive_loop():
 
 async def _warmup_services():
     """
-    Pre-warms model discovery and vector embeddings in the background on startup,
-    ensuring zero latency on user's first chat request.
+    Pre-warms Gemini model discovery in the background on startup.
+    Keeps memory minimal (<100MB) without loading heavy PyTorch embeddings.
     """
     await asyncio.sleep(2)
     try:
@@ -51,13 +55,6 @@ async def _warmup_services():
         logger.info("Background model discovery warmed up successfully.")
     except Exception as exc:
         logger.debug(f"Model warmup note: {exc}")
-
-    try:
-        from app.services.rag.vector_store import get_vector_store
-        await asyncio.to_thread(get_vector_store)
-        logger.info("Background vector store warmed up successfully.")
-    except Exception as exc:
-        logger.debug(f"Vector store warmup note: {exc}")
 
 
 @asynccontextmanager
