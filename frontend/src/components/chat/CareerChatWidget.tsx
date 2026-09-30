@@ -51,6 +51,21 @@ export const CareerChatWidget: React.FC<CareerChatWidgetProps> = ({
     storageAdapter.setChatMessages(isAuth, messages, user?.id);
   }, [user?.id, isAuth, messages]);
 
+  // Listen to Cover Letter generation status to prevent simultaneous resource usage on 512MB RAM cloud tier
+  const [isCoverLetterGenerating, setIsCoverLetterGenerating] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleStatus = (e: any) => {
+      const generating = Boolean(e?.detail?.isGenerating);
+      setIsCoverLetterGenerating(generating);
+      if (generating) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('cover-letter-generating-status', handleStatus);
+    return () => window.removeEventListener('cover-letter-generating-status', handleStatus);
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -123,6 +138,11 @@ export const CareerChatWidget: React.FC<CareerChatWidgetProps> = ({
     );
   };
 
+  // If a cover letter is actively being generated, completely hide Career Copilot to prevent simultaneous resource contention
+  if (isCoverLetterGenerating) {
+    return null;
+  }
+
   return (
     <>
       {/* Floating Trigger Button */}
@@ -155,7 +175,7 @@ export const CareerChatWidget: React.FC<CareerChatWidgetProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-white leading-none">Career Copilot</h3>
                 <span className="text-[10px] text-emerald-400 font-mono">
-                  {jobTitle ? `${jobTitle} • ` : ''}Pinecone 3A-K5 Online
+                  {jobTitle ? `${jobTitle} • ` : ''}AI Mentor Online
                 </span>
               </div>
             </div>

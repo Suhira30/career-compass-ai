@@ -23,25 +23,33 @@ _vector_store = None
 def get_embedding_model():
     """
     Returns or lazily initializes the HuggingFace embeddings model.
-    Default Model: BAAI/bge-small-en-v1.5 (384 dims, 512 max tokens)
+    In cloud container environments without pre-baked weights, operates in
+    Direct Grounded LLM Mode to safeguard against 512MB RAM OOM crashes.
     """
     global _embeddings
-    if _embeddings is None:
+    if _embeddings is not None:
+        return _embeddings
+
+    # Safeguard: in cloud free-tier production, avoid downloading 134MB PyTorch to prevent 512MB OOM crash
+    if settings.ENVIRONMENT == "production" and not getattr(settings, "ENABLE_HEAVY_LOCAL_EMBEDDINGS", False):
+        logger.info("Cloud Free-Tier Mode: Bypassing local PyTorch download (512MB RAM safeguard). Operating in Direct Grounded LLM Mode.")
+        return None
+
+    try:
         try:
-            try:
-                from langchain_huggingface import HuggingFaceEmbeddings
-            except ImportError:
-                from langchain_community.embeddings import HuggingFaceEmbeddings
-            model_name = getattr(settings, "EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
-            logger.info(f"Initializing HuggingFaceEmbeddings ('{model_name}')...")
-            _embeddings = HuggingFaceEmbeddings(
-                model_name=model_name,
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"normalize_embeddings": True},
-            )
-        except Exception as exc:
-            logger.error(f"Failed to load HuggingFaceEmbeddings: {exc}")
-            raise RuntimeError(f"Embedding model initialization failed: {exc}") from exc
+            from langchain_huggingface import HuggingFaceEmbeddings
+        except ImportError:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+        model_name = getattr(settings, "EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
+        logger.info(f"Initializing HuggingFaceEmbeddings ('{model_name}')...")
+        _embeddings = HuggingFaceEmbeddings(
+            model_name=model_name,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+    except Exception as exc:
+        logger.warning(f"Could not load HuggingFaceEmbeddings: {exc}. Operating in Direct Grounded LLM Mode.")
+        return None
     return _embeddings
 
 
@@ -49,7 +57,7 @@ def get_vector_store():
     """
     Returns initialized Vector Store client instance.
     Checks for Pinecone Cloud API Key first; falls back to populated local ChromaDB directory.
-    Returns None immediately if neither vector store source is available.
+    Returns None immediately if neither vector store source is available or in cloud free-tier mode.
     """
     global _vector_store
     if _vector_store is not None:
@@ -59,6 +67,9 @@ def get_vector_store():
     if settings.PINECONE_API_KEY and settings.PINECONE_INDEX_NAME:
         try:
             embeddings_model = get_embedding_model()
+            if not embeddings_model:
+                logger.info("Embeddings model bypassed in cloud free-tier container. Operating in direct grounded LLM mode.")
+                return None
             from langchain_pinecone import PineconeVectorStore
             logger.info(f"Connecting to Pinecone Cloud Serverless (Index: '{settings.PINECONE_INDEX_NAME}')...")
             os.environ["PINECONE_API_KEY"] = settings.PINECONE_API_KEY

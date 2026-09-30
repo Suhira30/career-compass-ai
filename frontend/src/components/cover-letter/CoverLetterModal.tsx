@@ -92,6 +92,22 @@ export const CoverLetterModal: React.FC<CoverLetterModalProps> = ({
     }
   }, [isOpen, targetRole, companyName, projects, initialInstitution, initialDegree, initialGpa, initialEmail, initialPhone, initialLinkedin, initialGithub, initialPortfolio]);
 
+  // Broadcast generating state to window so Career Copilot widget can automatically hide
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('cover-letter-generating-status', {
+        detail: { isGenerating: isOpen && isGenerating, isOpen },
+      })
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent('cover-letter-generating-status', {
+          detail: { isGenerating: false, isOpen: false },
+        })
+      );
+    };
+  }, [isGenerating, isOpen]);
+
   if (!isOpen) return null;
 
   const handleToggleProject = (proj: MatchingProject) => {
