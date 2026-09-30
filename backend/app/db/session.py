@@ -12,12 +12,17 @@ connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     # SQLite requires check_same_thread=False for multi-threaded FastAPI access
     connect_args = {"check_same_thread": False}
+else:
+    # Set strict 3-second connection timeout for PostgreSQL to prevent network hangs
+    connect_args = {"connect_timeout": 3}
 
 # 2. Create SQLAlchemy Engine
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
     pool_pre_ping=True,  # Automatically test connections before issuing queries
+    pool_recycle=300,
+    pool_timeout=5,
 )
 
 # 3. Create Session Factory

@@ -28,7 +28,7 @@ router = APIRouter(prefix="/profile", tags=["User Profile"])
     summary="Create user career profile",
     description="Creates a new career profile with technical skills, education, and target role. (FR-01)",
 )
-async def create_profile(profile_in: UserProfileCreate, db: Session = Depends(get_db)):
+def create_profile(profile_in: UserProfileCreate, db: Session = Depends(get_db)):
     """
     POST /api/v1/profile
     """
@@ -72,7 +72,7 @@ async def create_profile(profile_in: UserProfileCreate, db: Session = Depends(ge
     summary="Fetch user profile by ID",
     description="Retrieves a user's full career profile details including skills, target role, and education.",
 )
-async def get_profile(profile_id: str, db: Session = Depends(get_db)):
+def get_profile(profile_id: str, db: Session = Depends(get_db)):
     """
     GET /api/v1/profile/{profile_id}
     """
@@ -119,7 +119,7 @@ async def get_profile(profile_id: str, db: Session = Depends(get_db)):
     summary="Update user profile by ID",
     description="Updates existing profile attributes (partial update supported).",
 )
-async def update_profile(profile_id: str, profile_update: UserProfileUpdate):
+def update_profile(profile_id: str, profile_update: UserProfileUpdate):
     """
     PUT /api/v1/profile/{profile_id}
     """
@@ -138,7 +138,7 @@ async def update_profile(profile_id: str, profile_update: UserProfileUpdate):
     summary="Delete user profile by ID",
     description="Deletes a user profile from the system.",
 )
-async def delete_profile(profile_id: str):
+def delete_profile(profile_id: str):
     """
     DELETE /api/v1/profile/{profile_id}
     """
