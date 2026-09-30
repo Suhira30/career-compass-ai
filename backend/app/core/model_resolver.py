@@ -22,6 +22,7 @@ _BLACKLISTED_GEMINI_MODELS: Set[str] = {
     "gemini-2.0-flash",
     "gemini-1.5-pro",
     "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
     "gemini-2.5-pro",
 }
 _BLACKLISTED_GROQ_MODELS: Set[str] = set()
@@ -31,6 +32,9 @@ _DISCOVERED_GEMINI_TIMESTAMP: float = 0.0
 
 _DISCOVERED_GROQ_MODELS: List[str] = []
 _DISCOVERED_GROQ_TIMESTAMP: float = 0.0
+
+# In-memory cooldown tracking for models experiencing temporary 429 quota exhaustion or 503 high-demand spikes
+_COOLDOWN_MODELS: dict = {}
 
 CACHE_TTL_SECONDS: float = 3600.0  # 1 hour discovery cache
 
@@ -54,6 +58,53 @@ def is_model_deprecated_error(exc: Exception) -> bool:
             "does not exist",
         ]
     )
+
+
+def is_quota_or_rate_limit_error(exc: Exception) -> bool:
+    """
+    Returns True if an exception indicates a temporary rate limit (429), quota exhaustion,
+    or provider service spike (503).
+    """
+    msg = (str(exc) or repr(exc)).lower()
+    return any(
+        phrase in msg
+        for phrase in [
+            "429",
+            "503",
+            "quota exceeded",
+            "rate limit",
+            "resource_exhausted",
+            "experiencing high demand",
+            "spikes in demand",
+            "serviceunavailable",
+        ]
+    )
+
+
+def mark_model_cooldown(model_name: str, duration_seconds: float = 600.0) -> None:
+    """
+    Temporarily cools down a model (default 10 minutes) when it encounters a 429 quota or 503 spike,
+    routing subsequent requests to the next healthy model instantly in 0ms.
+    """
+    clean_name = model_name.replace("models/", "").strip()
+    _COOLDOWN_MODELS[clean_name] = time.time() + duration_seconds
+    logger.warning(
+        f"Placed model '{clean_name}' in temporary cooldown for {duration_seconds}s (quota limit / demand spike)."
+    )
+
+
+def is_model_in_cooldown(model_name: str) -> bool:
+    """
+    Returns True if the model is currently within its cooldown window.
+    Automatically purges expired cooldowns.
+    """
+    clean_name = model_name.replace("models/", "").strip()
+    expiry = _COOLDOWN_MODELS.get(clean_name, 0.0)
+    if time.time() < expiry:
+        return True
+    if clean_name in _COOLDOWN_MODELS:
+        del _COOLDOWN_MODELS[clean_name]
+    return False
 
 
 def mark_gemini_model_deprecated(model_name: str) -> None:
@@ -110,18 +161,25 @@ def discover_gemini_models_from_api() -> List[str]:
                     continue
                 discovered.append(name)
 
-        # Sort: flash models first (fastest & highest free quota), then pro models
-        def _sort_key(model_name: str) -> int:
+        # Sort: GA flash models first (fastest & highest free quota), then pro models
+        def _sort_key(model_name: str) -> tuple:
             m_low = model_name.lower()
-            if "flash" in m_low and "preview" not in m_low:
-                return 1
-            if "flash" in m_low:
-                return 2
-            if "pro" in m_low and "preview" not in m_low:
-                return 3
-            if "pro" in m_low:
-                return 4
-            return 5
+            # Tier 0: Stable GA 3.5 Flash & Flash-Lite (Highest Free Quota, fastest latency)
+            if "3.5-flash" in m_low and "preview" not in m_low:
+                tier = 0
+            elif "3.6-flash" in m_low and "preview" not in m_low:
+                tier = 1
+            elif "flash" in m_low and "preview" not in m_low:
+                tier = 2
+            elif "flash" in m_low:
+                tier = 3
+            elif "pro" in m_low and "preview" not in m_low:
+                tier = 4
+            elif "pro" in m_low:
+                tier = 5
+            else:
+                tier = 6
+            return (tier, model_name)
 
         discovered.sort(key=_sort_key)
         _DISCOVERED_GEMINI_MODELS = discovered
@@ -137,7 +195,7 @@ def get_active_gemini_models() -> List[str]:
     """
     Returns priority-ordered list of active, non-deprecated Gemini models.
     Combines configured models with dynamically discovered models, filtering out
-    any blacklisted or sunsetted models.
+    any blacklisted, sunsetted, or temporarily rate-limited cooldown models.
     """
     global _DISCOVERED_GEMINI_MODELS, _DISCOVERED_GEMINI_TIMESTAMP
 
@@ -156,20 +214,21 @@ def get_active_gemini_models() -> List[str]:
         for m in _DISCOVERED_GEMINI_MODELS:
             if m not in candidates and m not in _BLACKLISTED_GEMINI_MODELS:
                 candidates.append(m)
-        return candidates
 
-    # 3. If candidates list is empty or discovery expired, query API
-    if not candidates or (now - _DISCOVERED_GEMINI_TIMESTAMP) >= CACHE_TTL_SECONDS:
+    # 3. If candidates list is empty or discovery was never run, query API
+    if not candidates:
         discovered = discover_gemini_models_from_api()
         for m in discovered:
-            if m not in candidates:
+            if m not in candidates and m not in _BLACKLISTED_GEMINI_MODELS:
                 candidates.append(m)
 
     # 4. Fallback safeguard if all discovery failed
     if not candidates:
-        candidates = ["gemini-3.8-flash", "gemini-3.1-pro-preview"]
+        candidates = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash"]
 
-    return candidates
+    # 5. Filter out models currently in cooldown (e.g. models hitting temporary 429 quota or 503 spikes)
+    active_candidates = [m for m in candidates if not is_model_in_cooldown(m)]
+    return active_candidates if active_candidates else candidates
 
 
 def discover_groq_models_from_api() -> List[str]:

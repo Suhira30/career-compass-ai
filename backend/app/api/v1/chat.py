@@ -61,8 +61,6 @@ async def chat_message(request: ChatMessageInput):
         async def event_generator():
             full_response_chunks = []
             try:
-                # Send immediate heartbeat so Cloudflare proxy opens stream without buffering
-                yield ""
                 async for token in stream_chat_chain(request.message, context_str):
                     full_response_chunks.append(token)
                     yield token

@@ -21,6 +21,8 @@ from app.core.model_resolver import (
     mark_gemini_model_deprecated,
     mark_groq_model_deprecated,
     is_model_deprecated_error,
+    is_quota_or_rate_limit_error,
+    mark_model_cooldown,
 )
 from app.models.chat import ChatMessageResponse
 from app.models.analysis import GapAnalysisResponse
@@ -96,18 +98,18 @@ async def async_format_candidate_context(
         parts.append(f"Partially Available Skills: {', '.join(analysis.skill_matrix.partially_available_skills) if analysis.skill_matrix.partially_available_skills else 'None'}")
         parts.append(f"Recommended Improvements: {', '.join(analysis.assessment.recommended_improvements)}")
 
-    # 2. Non-blocking RAG Vector Search with 2.5s Timeout
+    # 2. Non-blocking RAG Vector Search with snappy 1.0s Timeout
     if user_message:
         try:
             retrieval_query = condense_query_with_history(user_message, session_history)
             kb_context = await asyncio.wait_for(
                 asyncio.to_thread(search_relevant_context, retrieval_query, 5),
-                timeout=2.5,
+                timeout=1.0,
             )
             if kb_context:
                 parts.append(f"\nRetrieved Domain Knowledge Base Context (Parent-Child 3A-K5):\n{kb_context}")
         except asyncio.TimeoutError:
-            logger.warning("RAG vector search timed out after 2.5s; proceeding with candidate profile context.")
+            logger.info("RAG vector search exceeded 1.0s threshold; proceeding with candidate profile context.")
         except Exception as exc:
             logger.warning(f"RAG vector search skipped/failed: {exc}")
 
@@ -195,18 +197,25 @@ def invoke_chat_chain(
             try:
                 model = genai.GenerativeModel(model_name=model_name, generation_config={"temperature": 0.3})
                 response = model.generate_content(full_prompt)
-                text = response.text.strip() if hasattr(response, "text") else ""
+                text = ""
+                try:
+                    text = response.text.strip()
+                except Exception:
+                    if hasattr(response, "candidates") and response.candidates:
+                        for part in getattr(response.candidates[0].content, "parts", []):
+                            if hasattr(part, "text") and part.text:
+                                text += part.text
                 return ChatMessageResponse(
                     session_id=session_id,
-                    response=text,
+                    response=text.strip(),
                     suggested_followups=generate_suggested_followups(user_message, text),
                 )
             except Exception as exc:
                 if is_model_deprecated_error(exc):
                     mark_gemini_model_deprecated(model_name)
+                elif is_quota_or_rate_limit_error(exc):
+                    mark_model_cooldown(model_name, duration_seconds=600.0)
                 logger.warning(f"Gemini Chat candidate '{model_name}' failed: {exc}")
-                if is_quota_exhausted_error(exc):
-                    break
                 continue
 
     # 2. Fallback 1: Groq
@@ -226,6 +235,8 @@ def invoke_chat_chain(
             except Exception as exc:
                 if is_model_deprecated_error(exc):
                     mark_groq_model_deprecated(model_name)
+                elif is_quota_or_rate_limit_error(exc):
+                    mark_model_cooldown(model_name, duration_seconds=600.0)
                 logger.warning(f"Groq Chat candidate '{model_name}' failed: {exc}")
                 continue
 
@@ -278,10 +289,17 @@ async def stream_chat_chain(
         for model_name in get_active_gemini_models():
             try:
                 model = genai.GenerativeModel(model_name=model_name, generation_config={"temperature": 0.3})
-                response = model.generate_content(full_prompt, stream=True)
+                response = await model.generate_content_async(full_prompt, stream=True)
                 streamed_any = False
-                for chunk in response:
-                    chunk_text = getattr(chunk, "text", "")
+                async for chunk in response:
+                    chunk_text = ""
+                    try:
+                        chunk_text = chunk.text
+                    except Exception:
+                        if hasattr(chunk, "candidates") and chunk.candidates:
+                            for part in getattr(chunk.candidates[0].content, "parts", []):
+                                if hasattr(part, "text") and part.text:
+                                    chunk_text += part.text
                     if chunk_text:
                         streamed_any = True
                         yield chunk_text
@@ -290,9 +308,9 @@ async def stream_chat_chain(
             except Exception as exc:
                 if is_model_deprecated_error(exc):
                     mark_gemini_model_deprecated(model_name)
+                elif is_quota_or_rate_limit_error(exc):
+                    mark_model_cooldown(model_name, duration_seconds=600.0)
                 logger.warning(f"Gemini Streaming candidate '{model_name}' failed: {exc}")
-                if is_quota_exhausted_error(exc):
-                    break
                 continue
 
     # 2. Fallback 1: Groq Streaming

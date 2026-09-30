@@ -39,13 +39,36 @@ async def _database_keepalive_loop():
         await asyncio.sleep(86400)
 
 
+async def _warmup_services():
+    """
+    Pre-warms model discovery and vector embeddings in the background on startup,
+    ensuring zero latency on user's first chat request.
+    """
+    await asyncio.sleep(2)
+    try:
+        from app.core.model_resolver import discover_gemini_models_from_api
+        await asyncio.to_thread(discover_gemini_models_from_api)
+        logger.info("Background model discovery warmed up successfully.")
+    except Exception as exc:
+        logger.debug(f"Model warmup note: {exc}")
+
+    try:
+        from app.services.rag.vector_store import get_vector_store
+        await asyncio.to_thread(get_vector_store)
+        logger.info("Background vector store warmed up successfully.")
+    except Exception as exc:
+        logger.debug(f"Vector store warmup note: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     keepalive_task = asyncio.create_task(_database_keepalive_loop())
+    warmup_task = asyncio.create_task(_warmup_services())
     try:
         yield
     finally:
         keepalive_task.cancel()
+        warmup_task.cancel()
 
 
 app = FastAPI(
